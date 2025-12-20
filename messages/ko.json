@@ -1,0 +1,18 @@
+{
+  "Sidebar": {
+    "dashboard": "대시보드",
+    "chat": "AI 채팅",
+    "documents": "문서 관리",
+    "prompts": "프롬프트",
+    "users": "사용자 관리",
+    "settings": "설정",
+    "logs": "시스템 로그",
+    "audit": "보안 감사"
+  },
+  "Common": {
+    "loading": "로딩 중...",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제"
+  }
+}

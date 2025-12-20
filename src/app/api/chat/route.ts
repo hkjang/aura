@@ -20,12 +20,23 @@ export async function POST(req: Request) {
   try {
     const languageModel = AIProviderFactory.createModel(config);
 
+    // 1. Fetch enabled tools from DB
+    const toolConfigs = await prisma.toolConfig.findMany({
+      where: { isEnabled: true }
+    });
+
+    const activeTools: Record<string, any> = {};
+
+    // 2. Map DB keys to actual tool definitions
+    // This allows us to enable/disable them at runtime
+    if (toolConfigs.some(t => t.key === "search_documents")) {
+      activeTools["searchDocuments"] = searchDocumentsTool;
+    }
+
     const result = streamText({
       model: languageModel,
       messages,
-      tools: {
-        searchDocuments: searchDocumentsTool,
-      },
+      tools: activeTools,
       onFinish: async ({ usage }) => {
         // @ts-ignore - Usage types might vary in recent SDK versions
         const { promptTokens = 0, completionTokens = 0 } = usage || {};

@@ -10,32 +10,39 @@ import {
   Files, 
   Settings, 
   Bot,
-  Users
+  Users,
+  Activity,
+  ShieldAlert
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (open: boolean) => void }) {
   const pathname = usePathname();
+
+  const t = useTranslations('Sidebar');
 
   const navItems = [
     {
       group: "Overview",
       items: [
-        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
+        { label: t("dashboard"), href: "/dashboard", icon: LayoutDashboard },
+        { label: t("chat"), href: "/dashboard/chat", icon: MessageSquare },
       ]
     },
     {
       group: "Work",
       items: [
-        { label: "Documents", href: "/dashboard/documents", icon: Files },
-        { label: "Agents", href: "/dashboard/agents", icon: Bot },
+        { label: t("documents"), href: "/dashboard/documents", icon: Files },
+        { label: t("prompts"), href: "/dashboard/prompts", icon: Bot },
       ]
     },
     {
       group: "Admin",
       items: [
-        { label: "Users", href: "/dashboard/users", icon: Users },
-        { label: "Settings", href: "/dashboard/settings", icon: Settings },
+        { label: t("users"), href: "/dashboard/users", icon: Users },
+        { label: t("settings"), href: "/dashboard/settings", icon: Settings },
+        { label: t("logs"), href: "/dashboard/logs", icon: Activity },
+        { label: t("audit"), href: "/dashboard/audit", icon: ShieldAlert },
       ]
     }
   ];

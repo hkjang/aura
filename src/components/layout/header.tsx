@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import styles from "./header.module.css";
 import { Menu, Bell } from "lucide-react";
 
@@ -15,6 +16,7 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
       </div>
 
       <div className={styles.right}>
+        <ThemeToggle />
         <Button variant="ghost" size="icon">
           <Bell className="w-5 h-5" />
         </Button>

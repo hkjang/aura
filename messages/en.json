@@ -1,0 +1,18 @@
+{
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "chat": "AI Chat",
+    "documents": "Documents",
+    "prompts": "Prompts",
+    "users": "Users",
+    "settings": "Settings",
+    "logs": "System Logs",
+    "audit": "Security Audit"
+  },
+  "Common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  }
+}

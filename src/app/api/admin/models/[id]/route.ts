@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -14,6 +15,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     await prisma.modelConfig.delete({
       where: { id }
     });
+    
+    await logAudit({
+      userId: session.user.id,
+      action: "DELETE_MODEL_CONFIG",
+      resource: `model:${id}`
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: "Failed to delete model" }, { status: 500 });

@@ -11,18 +11,30 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  const password = await hash('admin123', 12);
+  const hashedPassword = await hash('admin123', 12);
   const user = await prisma.user.upsert({
-    where: { email: 'admin@aura.com' },
+    where: { email: 'admin@aura.local' },
     update: {},
     create: {
-      email: 'admin@aura.com',
+      email: 'admin@aura.local',
       name: 'Admin User',
-      password,
       role: 'ADMIN',
+      password: hashedPassword,
     },
   });
-  console.log({ user });
+
+  await prisma.toolConfig.upsert({
+    where: { key: 'search_documents' },
+    update: {},
+    create: {
+      key: 'search_documents',
+      name: 'Knowledge Base Search',
+      description: 'Search internal documents.',
+      isEnabled: true,
+    }
+  });
+
+  console.log('Seeding finished.');
 }
 
 main()

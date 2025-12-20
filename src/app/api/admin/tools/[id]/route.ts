@@ -1,38 +1,34 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { logAudit } from "@/lib/audit";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { id } = await params;
-    const { role } = await req.json();
+    const body = await req.json();
+    const { isEnabled, config } = body;
 
-    const user = await prisma.user.update({
+    const tool = await prisma.toolConfig.update({
       where: { id },
-      data: { role },
-      select: {
-        id: true, 
-        role: true
-      }
+      data: { isEnabled, config: config ? JSON.stringify(config) : undefined }
     });
 
     await logAudit({
       userId: session.user.id,
-      action: "UPDATE_USER_ROLE",
-      resource: `user:${id}`,
-      details: { newRole: role }
+      action: "UPDATE_TOOL_CONFIG",
+      resource: `tool:${tool.key}`,
+      details: { isEnabled }
     });
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ tool });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update tool" }, { status: 500 });
   }
 }
