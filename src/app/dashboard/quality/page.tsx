@@ -2,6 +2,9 @@
 import { Card } from "@/components/ui/card";
 // import styles from "./page.module.css"; 
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock Data
 const stats = [
   { label: "Avg. Accuracy", value: "94.2%", trend: "+1.2%" },

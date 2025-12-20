@@ -1,6 +1,10 @@
 
 import { Card } from "@/components/ui/card";
 import { BudgetCard } from "@/components/cost/budget-card";
+
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock data for MVP visualization
 const usageData = [
   { model: "GPT-4", tokens: 15400, cost: 0.46, requests: 120 },

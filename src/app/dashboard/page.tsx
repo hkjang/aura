@@ -4,6 +4,9 @@ import { Bot, FileText, Users, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 async function getStats() {
   const [chatCount, docCount, promptCount] = await Promise.all([
     prisma.chatSession.count(),

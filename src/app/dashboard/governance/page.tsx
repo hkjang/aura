@@ -2,6 +2,9 @@
 import { Card } from "@/components/ui/card";
 import { PolicyCard } from "@/components/governance/policy-card";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock data for MVP
 const policies = [
   { id: "1", name: "Block Competitors", type: "BLOCK_KEYWORD", action: "BLOCK", isActive: true, description: "Prevents users from mentioning specific competitor names in prompts." },

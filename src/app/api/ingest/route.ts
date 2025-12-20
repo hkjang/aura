@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseFile } from "@/lib/rag/parser";
 
+// Prevent static generation for this route (uses pdf-parse which requires DOM)
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
