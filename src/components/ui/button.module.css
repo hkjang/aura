@@ -1,0 +1,85 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+  outline: none;
+  gap: 0.5rem;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.button:focus-visible {
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
+}
+
+/* Variants */
+.primary {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.destructive {
+  background: rgb(220, 38, 38);
+  color: white;
+}
+
+.destructive:hover {
+  background: rgb(185, 28, 28);
+}
+
+.outline {
+  background: transparent;
+  border-color: var(--input);
+  color: var(--foreground);
+}
+
+.outline:hover {
+  background: var(--muted);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.ghost:hover {
+  background: var(--muted);
+}
+
+/* Sizes */
+.sm {
+  height: 2rem;
+  padding: 0 0.75rem;
+}
+
+.md {
+  height: 2.5rem;
+  padding: 0 1rem;
+}
+
+.lg {
+  height: 3rem;
+  padding: 0 1.5rem;
+  font-size: 1rem;
+}
+
+.icon {
+  height: 2.5rem;
+  width: 2.5rem;
+  padding: 0;
+}
