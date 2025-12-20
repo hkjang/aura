@@ -14,35 +14,33 @@ import {
   Activity,
   ShieldAlert
 } from "lucide-react";
-import { useTranslations } from "next-intl";
 
 export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (open: boolean) => void }) {
   const pathname = usePathname();
 
-  const t = useTranslations('Sidebar');
-
+  // Static navigation labels (was using useTranslations which fails during prerender)
   const navItems = [
     {
       group: "Overview",
       items: [
-        { label: t("dashboard"), href: "/dashboard", icon: LayoutDashboard },
-        { label: t("chat"), href: "/dashboard/chat", icon: MessageSquare },
+        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Chat", href: "/dashboard/chat", icon: MessageSquare },
       ]
     },
     {
       group: "Work",
       items: [
-        { label: t("documents"), href: "/dashboard/documents", icon: Files },
-        { label: t("prompts"), href: "/dashboard/prompts", icon: Bot },
+        { label: "Documents", href: "/dashboard/documents", icon: Files },
+        { label: "Prompts", href: "/dashboard/prompts", icon: Bot },
       ]
     },
     {
       group: "Admin",
       items: [
-        { label: t("users"), href: "/dashboard/users", icon: Users },
-        { label: t("settings"), href: "/dashboard/settings", icon: Settings },
-        { label: t("logs"), href: "/dashboard/logs", icon: Activity },
-        { label: t("audit"), href: "/dashboard/audit", icon: ShieldAlert },
+        { label: "Users", href: "/dashboard/users", icon: Users },
+        { label: "Settings", href: "/dashboard/settings", icon: Settings },
+        { label: "Logs", href: "/dashboard/logs", icon: Activity },
+        { label: "Audit", href: "/dashboard/audit", icon: ShieldAlert },
       ]
     }
   ];
