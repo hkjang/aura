@@ -1,23 +1,69 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
-import { Send, StopCircle, Settings2, ArrowUp } from "lucide-react";
+import { Send, StopCircle, Settings2, ArrowUp, History } from "lucide-react";
 import { ModelSelector } from "./model-selector";
 import { StructuredPromptBuilder } from "./structured-prompt-builder";
 import { SuggestionPanel, ProgressIndicator } from "./suggestion-panel";
+import { ChatHistory } from "./chat-history";
 
 export default function ChatInterface() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
   const [showPromptBuilder, setShowPromptBuilder] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  
+  // Thread management
+  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   
   // Dynamic Model State
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
+
+  // Load thread from URL
+  useEffect(() => {
+    const threadId = searchParams.get('thread');
+    if (threadId && threadId !== currentThreadId) {
+      loadThread(threadId);
+    }
+  }, [searchParams]);
+
+  const loadThread = async (threadId: string) => {
+    try {
+      const res = await fetch(`/api/threads/${threadId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.thread.messages.map((m: any) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content
+        })));
+        setCurrentThreadId(threadId);
+      }
+    } catch (error) {
+      console.error("Failed to load thread:", error);
+    }
+  };
+
+  const handleSelectThread = (threadId: string) => {
+    router.push(`/dashboard/chat?thread=${threadId}`);
+    setShowHistory(false);
+  };
+
+  const handleNewThread = () => {
+    setMessages([]);
+    setCurrentThreadId(null);
+    router.push('/dashboard/chat');
+    setShowHistory(false);
+  };
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -25,22 +71,20 @@ export default function ChatInterface() {
         const res = await fetch("/api/admin/models");
         if (res.ok) {
           const data = await res.json();
-          // Transform API models to ModelInfo format
           const mappedModels = data.models.map((m: any) => ({
-             id: m.modelId, // Use the actual model ID (e.g. gpt-4) for the API
+             id: m.modelId,
              name: m.name,
              provider: m.provider,
              description: `${m.provider} model (${m.modelId})`,
-             speed: "medium", // Default
-             cost: "medium",  // Default
-             capabilities: ["text", "code"], // Default
-             contextWindow: 128000, // Default
+             speed: "medium",
+             cost: "medium",
+             capabilities: ["text", "code"],
+             contextWindow: 128000,
              recommended: false
           }));
           
           if (mappedModels.length > 0) {
             setAvailableModels(mappedModels);
-            // Ensure selected model is valid
             if (!mappedModels.find((m: any) => m.id === selectedModel)) {
               setSelectedModel(mappedModels[0].id);
             }
@@ -54,12 +98,12 @@ export default function ChatInterface() {
     };
 
     fetchModels();
-  }, []); // Run once on mount
+  }, []);
   
   // Local input state for controlled input
   const [inputValue, setInputValue] = useState("");
   
-  // Chat state - managed locally since useChat hook is unreliable
+  // Chat state
   const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -69,6 +113,40 @@ export default function ChatInterface() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       setIsLoading(false);
+    }
+  };
+
+  // Save message to thread
+  const saveMessageToThread = async (threadId: string, role: string, content: string) => {
+    try {
+      await fetch(`/api/threads/${threadId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, content })
+      });
+    } catch (error) {
+      console.error("Failed to save message:", error);
+    }
+  };
+
+  // Create thread if needed
+  const ensureThread = async (): Promise<string> => {
+    if (currentThreadId) return currentThreadId;
+    
+    try {
+      const res = await fetch('/api/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '새 대화' })
+      });
+      const data = await res.json();
+      const newThreadId = data.thread.id;
+      setCurrentThreadId(newThreadId);
+      router.push(`/dashboard/chat?thread=${newThreadId}`, { scroll: false });
+      return newThreadId;
+    } catch (error) {
+      console.error("Failed to create thread:", error);
+      return '';
     }
   };
 
@@ -86,6 +164,14 @@ export default function ChatInterface() {
     
     const assistantMessage = { id: `assistant-${Date.now()}`, role: 'assistant' as const, content: '' };
     setMessages(prev => [...prev, assistantMessage]);
+    
+    // Ensure we have a thread
+    const threadId = await ensureThread();
+    
+    // Save user message to DB
+    if (threadId) {
+      saveMessageToThread(threadId, 'user', content);
+    }
     
     try {
       abortControllerRef.current = new AbortController();
@@ -127,6 +213,11 @@ export default function ChatInterface() {
               : m
           ));
         }
+      }
+      
+      // Save assistant message to DB after completion
+      if (threadId && fullContent) {
+        saveMessageToThread(threadId, 'assistant', fullContent);
       }
       
     } catch (error: any) {
@@ -180,9 +271,67 @@ export default function ChatInterface() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
-      {/* Messages Area */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+    <>
+      {/* History Sidebar Drawer */}
+      {showHistory && (
+        <>
+          <div 
+            onClick={() => setShowHistory(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.3)',
+              zIndex: 40
+            }}
+          />
+          <div style={{
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: '280px',
+            zIndex: 50,
+            boxShadow: 'var(--shadow-lg)'
+          }}>
+            <ChatHistory 
+              currentThreadId={currentThreadId}
+              onSelectThread={handleSelectThread}
+              onNewThread={handleNewThread}
+            />
+          </div>
+        </>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+        {/* History Toggle Button */}
+        <div style={{
+          position: 'absolute',
+          top: '8px',
+          left: '8px',
+          zIndex: 30
+        }}>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              color: 'var(--text-secondary)',
+              fontSize: '13px',
+              cursor: 'pointer'
+            }}
+          >
+            <History style={{ width: '16px', height: '16px' }} />
+            대화 이력
+          </button>
+        </div>
+
+        {/* Messages Area */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingTop: '48px' }}>
         {messages.length === 0 ? (
           <div style={{ 
             display: 'flex', 
@@ -438,5 +587,6 @@ export default function ChatInterface() {
         </div>
       )}
     </div>
+    </>
   );
 }
