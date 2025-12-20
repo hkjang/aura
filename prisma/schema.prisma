@@ -23,6 +23,7 @@ model User {
   sessions      Session[]
   chats         ChatSession[]
   prompts       PromptTemplate[]
+  usageLogs     UsageLog[]
 }
 
 model Account {
@@ -110,5 +111,18 @@ model Document {
   title     String
   content   String   // Text content
   metadata  String?  // JSON string
+  createdAt DateTime @default(now())
+}
+
+// --- Monitoring ---
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  model     String
+  tokensIn  Int      @default(0)
+  tokensOut Int      @default(0)
+  cost      Float    @default(0.0) // Estimated cost in USD
+  type      String   @default("chat") // chat, embedding, tool
   createdAt DateTime @default(now())
 }

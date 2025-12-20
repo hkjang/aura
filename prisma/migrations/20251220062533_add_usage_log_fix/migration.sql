@@ -1,0 +1,12 @@
+-- CreateTable
+CREATE TABLE "UsageLog" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT,
+    "model" TEXT NOT NULL,
+    "tokensIn" INTEGER NOT NULL DEFAULT 0,
+    "tokensOut" INTEGER NOT NULL DEFAULT 0,
+    "cost" REAL NOT NULL DEFAULT 0.0,
+    "type" TEXT NOT NULL DEFAULT 'chat',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UsageLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
