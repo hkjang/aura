@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
+import { MarkdownRenderer } from "./markdown-renderer";
 
 interface LocalMessage {
   id: string;
@@ -78,10 +79,13 @@ export function ChatMessage({ message, isPinned = false, onPin }: ChatMessagePro
         <div style={{
           fontSize: '15px',
           lineHeight: 1.7,
-          color: 'var(--text-primary)',
-          whiteSpace: 'pre-wrap'
+          color: 'var(--text-primary)'
         }}>
-          {message.content}
+          {isUser ? (
+            <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
+          ) : (
+            <MarkdownRenderer content={message.content} />
+          )}
         </div>
 
         {/* Actions for AI messages */}
