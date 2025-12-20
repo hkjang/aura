@@ -24,7 +24,8 @@ import {
   Sparkles,
   FileText,
   ArrowRight,
-  Clock
+  Clock,
+  X
 } from "lucide-react";
 
 interface CommandItem {
@@ -163,50 +164,106 @@ export function CommandPalette() {
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 animate-in fade-in duration-200"
-        style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999 }}
         onClick={() => setIsOpen(false)}
+        style={{ 
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.6)', 
+          backdropFilter: 'blur(4px)', 
+          zIndex: 9999
+        }}
       />
       
       {/* Palette */}
-      <div style={{ position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '640px', padding: '0 16px', zIndex: 10000 }}>
-        <div 
-          className="rounded-xl shadow-2xl overflow-hidden"
-          style={{ 
-            background: 'var(--bg-primary)', 
-            border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-lg)'
-          }}
-        >
+      <div style={{ 
+        position: 'fixed', 
+        top: '12%', 
+        left: '50%', 
+        transform: 'translateX(-50%)', 
+        width: '100%', 
+        maxWidth: '600px', 
+        padding: '0 16px', 
+        zIndex: 10000 
+      }}>
+        <div style={{ 
+          background: 'var(--bg-primary)', 
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+          overflow: 'hidden'
+        }}>
           {/* Search Input */}
-          <div 
-            className="flex items-center gap-3 px-4 py-3"
-            style={{ borderBottom: '1px solid var(--border-color)' }}
-          >
-            <Search className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+          <div style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--border-color)'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Search style={{ width: '18px', height: '18px', color: 'white' }} />
+            </div>
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="명령어, 페이지 또는 기능 검색..."
-              className="flex-1 bg-transparent outline-none"
-              style={{ color: 'var(--text-primary)' }}
+              placeholder="페이지, 명령어 검색..."
+              style={{ 
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                fontSize: '16px',
+                color: 'var(--text-primary)'
+              }}
             />
-            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              <kbd className="px-1.5 py-0.5 rounded text-xs" style={{ background: 'var(--bg-tertiary)' }}>esc</kbd>
-              <span>닫기</span>
-            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'var(--bg-tertiary)',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-tertiary)'
+              }}
+            >
+              <X style={{ width: '16px', height: '16px' }} />
+            </button>
           </div>
 
           {/* Results */}
-          <div className="max-h-[400px] overflow-y-auto p-2">
+          <div style={{ maxHeight: '400px', overflowY: 'auto', padding: '8px' }}>
             {/* Recent Items */}
             {!query && recentItems.length > 0 && (
-              <div className="mb-2">
-                <div className="px-2 py-1.5 text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
-                  <Clock className="w-3 h-3" />
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  <Clock style={{ width: '12px', height: '12px' }} />
                   최근 사용
                 </div>
                 {recentItems.map((id) => {
@@ -217,11 +274,35 @@ export function CommandPalette() {
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--bg-tertiary)]"
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 150ms ease'
+                      }}
                     >
-                      <Icon className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-                      <span className="flex-1" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
-                      <ArrowRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-tertiary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <Icon style={{ width: '16px', height: '16px', color: 'var(--color-primary)' }} />
+                      </div>
+                      <span style={{ flex: 1, fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>
+                        {item.label}
+                      </span>
+                      <ArrowRight style={{ width: '14px', height: '14px', color: 'var(--text-tertiary)' }} />
                     </button>
                   );
                 })}
@@ -230,11 +311,18 @@ export function CommandPalette() {
 
             {/* Grouped Results */}
             {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category} className="mb-2">
-                <div className="px-2 py-1.5 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              <div key={category} style={{ marginBottom: '8px' }}>
+                <div style={{ 
+                  padding: '8px 12px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
                   {category}
                 </div>
-                {items.map((item, idx) => {
+                {items.map((item) => {
                   const Icon = item.icon;
                   const flatIndex = flatItems.indexOf(item);
                   const isSelected = flatIndex === selectedIndex;
@@ -242,21 +330,51 @@ export function CommandPalette() {
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
-                      style={{ 
-                        background: isSelected ? 'var(--color-primary-light)' : 'transparent',
-                      }}
                       onMouseEnter={() => setSelectedIndex(flatIndex)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: isSelected ? 'var(--color-primary-light)' : 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'background 150ms ease'
+                      }}
                     >
-                      <Icon 
-                        className="w-4 h-4" 
-                        style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-secondary)' }} 
-                      />
-                      <span className="flex-1" style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}>{item.label}</span>
-                      <ArrowRight 
-                        className="w-4 h-4" 
-                        style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-tertiary)' }} 
-                      />
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: isSelected ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 150ms ease'
+                      }}>
+                        <Icon style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          color: isSelected ? 'white' : 'var(--text-secondary)' 
+                        }} />
+                      </div>
+                      <span style={{ 
+                        flex: 1, 
+                        fontSize: '14px', 
+                        fontWeight: isSelected ? 600 : 500, 
+                        color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)' 
+                      }}>
+                        {item.label}
+                      </span>
+                      <ArrowRight style={{ 
+                        width: '14px', 
+                        height: '14px', 
+                        color: isSelected ? 'var(--color-primary)' : 'var(--text-tertiary)',
+                        opacity: isSelected ? 1 : 0.5
+                      }} />
                     </button>
                   );
                 })}
@@ -265,34 +383,60 @@ export function CommandPalette() {
 
             {/* Empty State */}
             {filteredItems.length === 0 && (
-              <div className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>
-                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>&quot;{query}&quot;에 대한 결과가 없습니다</p>
+              <div style={{ 
+                padding: '40px 20px',
+                textAlign: 'center',
+                color: 'var(--text-tertiary)'
+              }}>
+                <Search style={{ width: '32px', height: '32px', margin: '0 auto 12px', opacity: 0.3 }} />
+                <p style={{ fontSize: '14px' }}>"{query}"에 대한 결과가 없습니다</p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div 
-            className="px-4 py-2 flex items-center gap-4 text-xs"
-            style={{ 
-              borderTop: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>↑↓</kbd>
+          <div style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            padding: '12px 20px',
+            borderTop: '1px solid var(--border-color)',
+            background: 'var(--bg-secondary)',
+            fontSize: '12px',
+            color: 'var(--text-tertiary)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={{ 
+                padding: '3px 6px',
+                borderRadius: '4px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                fontSize: '11px',
+                fontWeight: 500
+              }}>↑↓</kbd>
               <span>이동</span>
             </div>
-            <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>↵</kbd>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={{ 
+                padding: '3px 6px',
+                borderRadius: '4px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                fontSize: '11px',
+                fontWeight: 500
+              }}>↵</kbd>
               <span>선택</span>
             </div>
-            <div className="flex items-center gap-1 ml-auto">
-              <Command className="w-3 h-3" />
-              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>K</kbd>
-              <span>열기</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+              <kbd style={{ 
+                padding: '3px 6px',
+                borderRadius: '4px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                fontSize: '11px',
+                fontWeight: 500
+              }}>esc</kbd>
+              <span>닫기</span>
             </div>
           </div>
         </div>

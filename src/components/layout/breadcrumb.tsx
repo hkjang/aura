@@ -60,30 +60,70 @@ export function Breadcrumb() {
   return (
     <nav 
       aria-label="Breadcrumb" 
-      className="flex items-center gap-1 text-sm text-muted-foreground mb-4"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
+      }}
     >
       <Link 
         href="/dashboard" 
-        className="flex items-center hover:text-foreground transition-colors"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '26px',
+          height: '26px',
+          borderRadius: '6px',
+          color: 'var(--text-tertiary)',
+          background: 'var(--bg-tertiary)',
+          textDecoration: 'none',
+          transition: 'all 150ms ease'
+        }}
       >
-        <Home className="w-4 h-4" />
+        <Home style={{ width: '13px', height: '13px' }} />
       </Link>
       
-      {breadcrumbs.slice(1).map((item, index) => (
-        <div key={item.href} className="flex items-center gap-1">
-          <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
-          {index === breadcrumbs.length - 2 ? (
-            <span className="text-foreground font-medium">{item.label}</span>
-          ) : (
-            <Link 
-              href={item.href}
-              className="hover:text-foreground transition-colors"
-            >
-              {item.label}
-            </Link>
-          )}
-        </div>
-      ))}
+      {breadcrumbs.slice(1).map((item, index) => {
+        const isLast = index === breadcrumbs.length - 2;
+        return (
+          <div key={item.href} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <ChevronRight style={{ 
+              width: '14px', 
+              height: '14px', 
+              color: 'var(--text-tertiary)',
+              opacity: 0.5
+            }} />
+            {isLast ? (
+              <span style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                padding: '4px 10px',
+                background: 'var(--color-primary-light)',
+                borderRadius: '6px'
+              }}>
+                {item.label}
+              </span>
+            ) : (
+              <Link 
+                href={item.href}
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  transition: 'all 150ms ease'
+                }}
+              >
+                {item.label}
+              </Link>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 }

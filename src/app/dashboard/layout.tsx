@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
-import { Breadcrumb } from "@/components/layout/breadcrumb";
 import styles from "./layout.module.css";
 
 export default function DashboardLayout({
@@ -20,7 +19,6 @@ export default function DashboardLayout({
       <div className={styles.main}>
         <Header onMenuClick={() => setMobileOpen(!mobileOpen)} />
         <div className={styles.content}>
-          <Breadcrumb />
           {children}
         </div>
       </div>

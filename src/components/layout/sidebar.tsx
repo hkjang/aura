@@ -150,22 +150,86 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
 
   return (
     <aside className={cn(styles.sidebar, mobileOpen && styles.mobileOpen)}>
-      <Link href="/dashboard" className={styles.logo}>
-        <span className="text-violet-600 mr-2">✦</span> Aura Portal
+      {/* Logo Section */}
+      <Link 
+        href="/dashboard" 
+        style={{
+          height: 'var(--header-height)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '0 20px',
+          textDecoration: 'none',
+          borderBottom: '1px solid var(--border-color)',
+          background: 'var(--bg-secondary)'
+        }}
+      >
+        <div style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '10px',
+          background: 'linear-gradient(135deg, var(--color-primary), #8b5cf6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(124, 58, 237, 0.3)'
+        }}>
+          <span style={{ fontSize: '16px', color: 'white' }}>✦</span>
+        </div>
+        <div>
+          <div style={{ 
+            fontSize: '15px', 
+            fontWeight: 700, 
+            color: 'var(--text-primary)',
+            lineHeight: 1.2
+          }}>
+            Aura Portal
+          </div>
+          <div style={{ 
+            fontSize: '11px', 
+            color: 'var(--text-tertiary)',
+            fontWeight: 500
+          }}>
+            Enterprise AI
+          </div>
+        </div>
       </Link>
 
-      {/* Global Search Trigger */}
-      <button 
-        onClick={() => {
-          const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });
-          window.dispatchEvent(event);
-        }}
-        className="mx-3 mb-4 flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-      >
-        <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">검색...</span>
-        <kbd className="text-xs px-1.5 py-0.5 bg-white dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-700">⌘K</kbd>
-      </button>
+      {/* Search Button */}
+      <div style={{ padding: '12px 12px 0' }}>
+        <button 
+          onClick={() => {
+            const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true });
+            window.dispatchEvent(event);
+          }}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px 14px',
+            fontSize: '13px',
+            color: 'var(--text-tertiary)',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 150ms ease'
+          }}
+        >
+          <Search style={{ width: '15px', height: '15px' }} />
+          <span style={{ flex: 1, textAlign: 'left' }}>검색...</span>
+          <kbd style={{ 
+            fontSize: '11px', 
+            padding: '3px 6px',
+            background: 'var(--bg-primary)',
+            borderRadius: '4px',
+            border: '1px solid var(--border-color)',
+            fontFamily: 'inherit',
+            fontWeight: 500
+          }}>⌘K</kbd>
+        </button>
+      </div>
       
       <nav className={styles.nav}>
         {/* Favorites Section */}
