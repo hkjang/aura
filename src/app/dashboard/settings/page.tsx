@@ -25,6 +25,8 @@ export default function SettingsPage() {
     apiKey: ""
   });
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   const fetchModels = async () => {
     try {
       const res = await fetch("/api/admin/models");
@@ -43,17 +45,47 @@ export default function SettingsPage() {
     fetchModels();
   }, []);
 
-  const handleAddModel = async (e: React.FormEvent) => {
+  const handleEdit = (model: ModelConfig & { apiKey?: string }) => {
+    setEditingId(model.id);
+    setNewModel({
+      name: model.name,
+      provider: model.provider,
+      modelId: model.modelId,
+      baseUrl: model.baseUrl || "",
+      apiKey: "" // Don't show existing API key for security, user enters new one if changing
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewModel({ name: "", provider: "openai", modelId: "", baseUrl: "", apiKey: "" });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/admin/models", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newModel)
-      });
-      if (res.ok) {
-        fetchModels();
-        setNewModel({ name: "", provider: "openai", modelId: "", baseUrl: "", apiKey: "" });
+      if (editingId) {
+        // Update existing
+        const res = await fetch(`/api/admin/models/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newModel)
+        });
+        if (res.ok) {
+          fetchModels();
+          handleCancelEdit();
+        }
+      } else {
+        // Create new
+        const res = await fetch("/api/admin/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newModel)
+        });
+        if (res.ok) {
+          fetchModels();
+          setNewModel({ name: "", provider: "openai", modelId: "", baseUrl: "", apiKey: "" });
+        }
       }
     } catch (e) {
       console.error(e);
@@ -97,15 +129,21 @@ export default function SettingsPage() {
                   {models.map(m => (
                     <div key={m.id} style={{ 
                       padding: '16px', 
-                      background: 'var(--bg-secondary)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: 'var(--radius-lg)' 
+                      background: editingId === m.id ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', 
+                      border: editingId === m.id ? '1px solid var(--color-primary)' : '1px solid var(--border-color)', 
+                      borderRadius: 'var(--radius-lg)',
+                      transition: 'all 0.2s'
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                         <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</div>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} style={{ color: 'var(--color-error)' }}>
-                          <Trash style={{ width: '14px', height: '14px' }} />
-                        </Button>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(m)} style={{ color: 'var(--text-secondary)' }}>
+                            <Settings style={{ width: '14px', height: '14px' }} />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} style={{ color: 'var(--color-error)' }}>
+                            <Trash style={{ width: '14px', height: '14px' }} />
+                          </Button>
+                        </div>
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
                         <span>제공자: <strong>{m.provider}</strong></span>
@@ -122,16 +160,19 @@ export default function SettingsPage() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleAddModel} style={{ 
+            <form onSubmit={handleSubmit} style={{ 
               display: 'flex', 
               flexDirection: 'column', 
               gap: '16px', 
               padding: '20px', 
               background: 'var(--bg-secondary)', 
               border: '1px solid var(--border-color)', 
-              borderRadius: 'var(--radius-lg)' 
+              borderRadius: 'var(--radius-lg)',
+              height: 'fit-content'
             }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>새 모델 추가</h3>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                {editingId ? "모델 수정" : "새 모델 추가"}
+              </h3>
               <Input 
                 placeholder="표시 이름 (예: GPT-4, Llama 3)" 
                 value={newModel.name}
@@ -164,13 +205,31 @@ export default function SettingsPage() {
               />
               <Input 
                 type="password"
-                placeholder="API 키 (선택)" 
+                placeholder={editingId ? "API 키 (변경시에만 입력)" : "API 키 (선택)"}
                 value={newModel.apiKey}
                 onChange={e => setNewModel({...newModel, apiKey: e.target.value})}
               />
-              <Button type="submit">
-                <Plus style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 모델 추가
-              </Button>
+              
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <Button type="submit" style={{ flex: 1 }}>
+                  {editingId ? (
+                    <>
+                      <Settings style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 
+                      수정 사항 저장
+                    </>
+                  ) : (
+                    <>
+                      <Plus style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 
+                      모델 추가
+                    </>
+                  )}
+                </Button>
+                {editingId && (
+                  <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                    취소
+                  </Button>
+                )}
+              </div>
             </form>
           </div>
         </div>

@@ -1,8 +1,6 @@
-
 import { Card } from "@/components/ui/card";
 import { DeploymentCard } from "@/components/mlops/deployment-card";
 
-// Prevent static prerendering
 export const dynamic = 'force-dynamic';
 
 // Mock data
@@ -14,17 +12,19 @@ const deployments = [
 
 export default function MLOpsDashboardPage() {
   return (
-    <div className="p-6 space-y-8">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">MLOps & Deployment</h1>
-        <p className="text-muted-foreground">Manage model lifecycles, versions, and traffic routing.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>MLOps & 배포</h1>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+          모델 라이프사이클, 버전, 트래픽 라우팅을 관리하세요.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
          {/* Main Deployments Column */}
-         <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-lg font-semibold">Active Deployments</h2>
-            <div className="grid gap-4">
+         <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>활성 배포</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {deployments.map(d => (
                     <DeploymentCard key={d.id} deployment={d} />
                 ))}
@@ -32,36 +32,36 @@ export default function MLOpsDashboardPage() {
          </div>
 
          {/* Sidebar Stats */}
-         <div className="space-y-6">
-            <h2 className="text-lg font-semibold">System Health</h2>
-            <div className="grid gap-4">
-                <Card className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900">
-                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">API Uptime (30d)</p>
-                    <h3 className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">99.98%</h3>
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>시스템 상태</h2>
+            <div style={{ display: 'grid', gap: '16px' }}>
+                <Card className="p-4" style={{ background: '#dcfce7', borderColor: 'var(--color-success)' }}>
+                    <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-success)' }}>API 가동률 (30일)</p>
+                    <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-success)', marginTop: '4px' }}>99.98%</h3>
                 </Card>
                 <Card className="p-4">
-                    <p className="text-xs font-medium text-muted-foreground">Avg Latency (p95)</p>
-                    <h3 className="text-2xl font-bold mt-1">420ms</h3>
+                    <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>평균 지연 (p95)</p>
+                    <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>420ms</h3>
                 </Card>
                 <Card className="p-4">
-                     <p className="text-xs font-medium text-muted-foreground">Total Inference Req</p>
-                     <h3 className="text-2xl font-bold mt-1">1.2M</h3>
+                     <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 추론 요청</p>
+                     <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>1.2M</h3>
                 </Card>
             </div>
 
-            <div className="mt-8 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2">Automated Pipelines</h3>
-                <ul className="space-y-2 text-xs text-muted-foreground">
-                    <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        Evaluating v1.0.5-nightly
+            <Card className="p-4">
+                <h3 style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', marginBottom: '12px' }}>자동화 파이프라인</h3>
+                <ul style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-success)' }}></span>
+                        v1.0.5-nightly 평가 중
                     </li>
-                    <li className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        Re-indexing Vector DB
+                    <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-primary)' }}></span>
+                        벡터 DB 재인덱싱 중
                     </li>
                 </ul>
-            </div>
+            </Card>
          </div>
       </div>
     </div>

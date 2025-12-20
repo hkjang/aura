@@ -37,31 +37,31 @@ interface CommandItem {
 }
 
 const commandItems: CommandItem[] = [
-  // Navigation
-  { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, category: "Navigation" },
-  { id: "chat", label: "New Chat", href: "/dashboard/chat", icon: MessageSquare, category: "Navigation", keywords: ["conversation", "message"] },
-  { id: "compare", label: "Model Compare", href: "/dashboard/compare", icon: Scale, category: "Navigation", keywords: ["comparison", "benchmark"] },
-  { id: "quality", label: "Quality", href: "/dashboard/quality", icon: Sparkles, category: "Navigation" },
-  { id: "agents", label: "Agents", href: "/dashboard/agents", icon: Bot, category: "Navigation" },
-  { id: "knowledge", label: "Knowledge Base", href: "/dashboard/knowledge", icon: Brain, category: "Navigation", keywords: ["rag", "documents"] },
+  // 네비게이션
+  { id: "dashboard", label: "대시보드", href: "/dashboard", icon: LayoutDashboard, category: "네비게이션" },
+  { id: "chat", label: "새 채팅", href: "/dashboard/chat", icon: MessageSquare, category: "네비게이션", keywords: ["conversation", "message", "대화"] },
+  { id: "compare", label: "모델 비교", href: "/dashboard/compare", icon: Scale, category: "네비게이션", keywords: ["comparison", "benchmark"] },
+  { id: "quality", label: "품질", href: "/dashboard/quality", icon: Sparkles, category: "네비게이션" },
+  { id: "agents", label: "에이전트", href: "/dashboard/agents", icon: Bot, category: "네비게이션" },
+  { id: "knowledge", label: "지식 베이스", href: "/dashboard/knowledge", icon: Brain, category: "네비게이션", keywords: ["rag", "documents", "문서"] },
   
-  // Enterprise
-  { id: "cost", label: "Cost Management", href: "/dashboard/cost", icon: DollarSign, category: "Enterprise", keywords: ["billing", "usage"] },
-  { id: "governance", label: "Governance", href: "/dashboard/governance", icon: Shield, category: "Enterprise", keywords: ["policy", "compliance"] },
-  { id: "mlops", label: "MLOps", href: "/dashboard/mlops", icon: Rocket, category: "Enterprise", keywords: ["deployment", "models"] },
-  { id: "plugins", label: "Plugins", href: "/dashboard/plugins", icon: Puzzle, category: "Enterprise", keywords: ["extensions", "integrations"] },
+  // 엔터프라이즈
+  { id: "cost", label: "비용 관리", href: "/dashboard/cost", icon: DollarSign, category: "엔터프라이즈", keywords: ["billing", "usage", "요금"] },
+  { id: "governance", label: "거버넌스", href: "/dashboard/governance", icon: Shield, category: "엔터프라이즈", keywords: ["policy", "compliance", "정책"] },
+  { id: "mlops", label: "MLOps", href: "/dashboard/mlops", icon: Rocket, category: "엔터프라이즈", keywords: ["deployment", "models", "배포"] },
+  { id: "plugins", label: "플러그인", href: "/dashboard/plugins", icon: Puzzle, category: "엔터프라이즈", keywords: ["extensions", "integrations", "확장"] },
   
-  // Operations
-  { id: "sre", label: "SRE Dashboard", href: "/dashboard/sre", icon: HeartPulse, category: "Operations", keywords: ["monitoring", "health"] },
-  { id: "offline", label: "Offline Mode", href: "/dashboard/offline", icon: CloudOff, category: "Operations" },
-  { id: "documents", label: "Documents", href: "/dashboard/documents", icon: Files, category: "Operations", keywords: ["files", "upload"] },
-  { id: "prompts", label: "Prompts", href: "/dashboard/prompts", icon: FileText, category: "Operations", keywords: ["templates"] },
+  // 운영
+  { id: "sre", label: "SRE 대시보드", href: "/dashboard/sre", icon: HeartPulse, category: "운영", keywords: ["monitoring", "health", "모니터링"] },
+  { id: "offline", label: "오프라인 모드", href: "/dashboard/offline", icon: CloudOff, category: "운영" },
+  { id: "documents", label: "문서", href: "/dashboard/documents", icon: Files, category: "운영", keywords: ["files", "upload", "업로드"] },
+  { id: "prompts", label: "프롬프트", href: "/dashboard/prompts", icon: FileText, category: "운영", keywords: ["templates", "템플릿"] },
   
-  // Admin
-  { id: "users", label: "Users", href: "/dashboard/users", icon: Users, category: "Admin", keywords: ["members", "team"] },
-  { id: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings, category: "Admin", keywords: ["configuration", "preferences"] },
-  { id: "logs", label: "Logs", href: "/dashboard/logs", icon: Activity, category: "Admin" },
-  { id: "audit", label: "Audit Trail", href: "/dashboard/audit", icon: ShieldAlert, category: "Admin", keywords: ["history", "changes"] },
+  // 관리자
+  { id: "users", label: "사용자", href: "/dashboard/users", icon: Users, category: "관리자", keywords: ["members", "team", "팀"] },
+  { id: "settings", label: "설정", href: "/dashboard/settings", icon: Settings, category: "관리자", keywords: ["configuration", "preferences", "구성"] },
+  { id: "logs", label: "로그", href: "/dashboard/logs", icon: Activity, category: "관리자" },
+  { id: "audit", label: "감사 추적", href: "/dashboard/audit", icon: ShieldAlert, category: "관리자", keywords: ["history", "changes", "이력"] },
 ];
 
 export function CommandPalette() {
@@ -163,28 +163,40 @@ export function CommandPalette() {
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+        className="fixed inset-0 animate-in fade-in duration-200"
+        style={{ background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', zIndex: 9999 }}
         onClick={() => setIsOpen(false)}
       />
       
       {/* Palette */}
-      <div className="fixed inset-x-4 top-[20%] max-w-2xl mx-auto z-50 animate-in slide-in-from-top-4 duration-200">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+      <div style={{ position: 'fixed', top: '15%', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '640px', padding: '0 16px', zIndex: 10000 }}>
+        <div 
+          className="rounded-xl shadow-2xl overflow-hidden"
+          style={{ 
+            background: 'var(--bg-primary)', 
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-lg)'
+          }}
+        >
           {/* Search Input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-            <Search className="w-5 h-5 text-muted-foreground" />
+          <div 
+            className="flex items-center gap-3 px-4 py-3"
+            style={{ borderBottom: '1px solid var(--border-color)' }}
+          >
+            <Search className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Search commands, pages, or features..."
-              className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+              placeholder="명령어, 페이지 또는 기능 검색..."
+              className="flex-1 bg-transparent outline-none"
+              style={{ color: 'var(--text-primary)' }}
             />
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded text-xs">esc</kbd>
-              <span>to close</span>
+            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              <kbd className="px-1.5 py-0.5 rounded text-xs" style={{ background: 'var(--bg-tertiary)' }}>esc</kbd>
+              <span>닫기</span>
             </div>
           </div>
 
@@ -193,9 +205,9 @@ export function CommandPalette() {
             {/* Recent Items */}
             {!query && recentItems.length > 0 && (
               <div className="mb-2">
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                <div className="px-2 py-1.5 text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
                   <Clock className="w-3 h-3" />
-                  Recent
+                  최근 사용
                 </div>
                 {recentItems.map((id) => {
                   const item = commandItems.find((i) => i.id === id);
@@ -205,11 +217,11 @@ export function CommandPalette() {
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-left transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--bg-tertiary)]"
                     >
-                      <Icon className="w-4 h-4 text-violet-500" />
-                      <span className="flex-1">{item.label}</span>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      <Icon className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
+                      <span className="flex-1" style={{ color: 'var(--text-primary)' }}>{item.label}</span>
+                      <ArrowRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
                     </button>
                   );
                 })}
@@ -219,7 +231,7 @@ export function CommandPalette() {
             {/* Grouped Results */}
             {Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} className="mb-2">
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                <div className="px-2 py-1.5 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   {category}
                 </div>
                 {items.map((item, idx) => {
@@ -230,15 +242,21 @@ export function CommandPalette() {
                     <button
                       key={item.id}
                       onClick={() => handleSelect(item)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                        isSelected 
-                          ? "bg-violet-100 dark:bg-violet-900/30 text-violet-900 dark:text-violet-100" 
-                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                      }`}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors"
+                      style={{ 
+                        background: isSelected ? 'var(--color-primary-light)' : 'transparent',
+                      }}
+                      onMouseEnter={() => setSelectedIndex(flatIndex)}
                     >
-                      <Icon className={`w-4 h-4 ${isSelected ? "text-violet-600" : "text-muted-foreground"}`} />
-                      <span className="flex-1">{item.label}</span>
-                      <ArrowRight className={`w-4 h-4 ${isSelected ? "text-violet-600" : "text-muted-foreground"}`} />
+                      <Icon 
+                        className="w-4 h-4" 
+                        style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-secondary)' }} 
+                      />
+                      <span className="flex-1" style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)', fontWeight: isSelected ? 500 : 400 }}>{item.label}</span>
+                      <ArrowRight 
+                        className="w-4 h-4" 
+                        style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-tertiary)' }} 
+                      />
                     </button>
                   );
                 })}
@@ -247,27 +265,34 @@ export function CommandPalette() {
 
             {/* Empty State */}
             {filteredItems.length === 0 && (
-              <div className="py-8 text-center text-muted-foreground">
+              <div className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>
                 <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No results found for &quot;{query}&quot;</p>
+                <p>&quot;{query}&quot;에 대한 결과가 없습니다</p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-4 text-xs text-muted-foreground">
+          <div 
+            className="px-4 py-2 flex items-center gap-4 text-xs"
+            style={{ 
+              borderTop: '1px solid var(--border-color)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-secondary)'
+            }}
+          >
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">↑↓</kbd>
-              <span>Navigate</span>
+              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>↑↓</kbd>
+              <span>이동</span>
             </div>
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">↵</kbd>
-              <span>Select</span>
+              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>↵</kbd>
+              <span>선택</span>
             </div>
             <div className="flex items-center gap-1 ml-auto">
               <Command className="w-3 h-3" />
-              <kbd className="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 rounded">K</kbd>
-              <span>to open</span>
+              <kbd className="px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>K</kbd>
+              <span>열기</span>
             </div>
           </div>
         </div>

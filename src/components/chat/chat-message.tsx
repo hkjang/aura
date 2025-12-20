@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import styles from "./chat-message.module.css";
-import { Bot, User, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from "lucide-react";
-import { FeedbackDialog } from "./feedback-dialog";
-import { SourceCitations } from "./source-citations";
-import { ConfidenceBar } from "./confidence-bar";
-import { UncertaintyAlert, LowConfidenceAlert, SpeculativeAlert } from "./uncertainty-alert";
-import { ResponseActions, FollowUpActions } from "./response-actions";
+import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
 
 interface LocalMessage {
   id: string;
@@ -25,143 +18,149 @@ interface ChatMessageProps {
 export function ChatMessage({ message, isPinned = false, onPin }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [feedback, setFeedback] = useState<number | null>(null);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [showExpanded, setShowExpanded] = useState(false);
-  const [showAlert, setShowAlert] = useState(true);
+  const [copied, setCopied] = useState(false);
 
-  // Mock data - in real app, this would come from message metadata
-  const citations = !isUser && message.content.length > 100 ? [
-    { id: "1", title: "Internal Policy Guide.pdf", type: "document" as const, relevance: 0.92, page: 15 },
-    { id: "2", title: "Company Knowledge Base", type: "database" as const, relevance: 0.85 },
-    { id: "3", title: "https://docs.example.com/guide", url: "https://docs.example.com", type: "web" as const, relevance: 0.78 },
-  ] : [];
-  
-  const confidence = 0.85;
-  const isLongContent = message.content.length > 500;
-  
-  // Follow-up suggestions based on content
-  const followUpSuggestions = !isUser ? [
-    "Tell me more about this",
-    "Give me examples",
-    "How does this apply to my case?",
-  ] : [];
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  const handleFeedback = async (rating: number, reason?: string) => {
+  const handleFeedback = async (rating: number) => {
     setFeedback(rating);
     try {
       await fetch('/api/quality/feedback', {
         method: 'POST',
-        body: JSON.stringify({
-          messageId: message.id,
-          rating,
-          reason
-        })
+        body: JSON.stringify({ messageId: message.id, rating })
       });
-      setIsFeedbackOpen(false);
     } catch (e) {
       console.error(e);
     }
   };
 
-  // Determine if we should show any alerts
-  const showLowConfidenceAlert = !isUser && confidence < 0.6 && showAlert;
-  const showSpeculativeAlert = !isUser && message.content.includes("might") && confidence < 0.7 && showAlert;
-
   return (
-    <div className={cn(styles.message, isUser ? styles.user : styles.assistant)}>
-      <div className={cn(styles.avatar, isUser ? "bg-slate-200 text-slate-700" : "bg-violet-600 text-white")}>
-        {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+    <div style={{
+      display: 'flex',
+      gap: '16px',
+      padding: '24px 0',
+      animation: 'fadeIn 200ms ease'
+    }}>
+      {/* Avatar */}
+      <div style={{
+        flexShrink: 0,
+        width: '32px',
+        height: '32px',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: isUser ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+        color: isUser ? 'white' : 'var(--text-primary)'
+      }}>
+        {isUser ? <User style={{ width: '18px', height: '18px' }} /> : <Bot style={{ width: '18px', height: '18px' }} />}
       </div>
-      <div className={styles.content}>
-        <div className="font-semibold mb-1 text-sm text-muted-foreground uppercase flex items-center justify-between">
-          <span>{isUser ? "You" : "Aura AI"}</span>
+      
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Header */}
+        <div style={{ 
+          fontSize: '13px', 
+          fontWeight: 600, 
+          color: 'var(--text-secondary)',
+          marginBottom: '8px',
+          textTransform: 'uppercase' as const,
+          letterSpacing: '0.5px'
+        }}>
+          {isUser ? "You" : "Aura AI"}
         </div>
 
-        {/* Alerts */}
-        {showLowConfidenceAlert && (
-          <LowConfidenceAlert onDismiss={() => setShowAlert(false)} />
-        )}
-        {showSpeculativeAlert && !showLowConfidenceAlert && (
-          <SpeculativeAlert onDismiss={() => setShowAlert(false)} />
-        )}
-        
         {/* Message Content */}
-        <div className={cn(
-          "whitespace-pre-wrap",
-          isLongContent && !showExpanded && "line-clamp-6"
-        )}>
+        <div style={{
+          fontSize: '15px',
+          lineHeight: 1.7,
+          color: 'var(--text-primary)',
+          whiteSpace: 'pre-wrap'
+        }}>
           {message.content}
         </div>
 
-        {/* Expand/Collapse for long content */}
-        {isLongContent && (
-          <button
-            onClick={() => setShowExpanded(!showExpanded)}
-            className="text-xs text-violet-600 hover:text-violet-700 flex items-center gap-1 mt-2"
-          >
-            {showExpanded ? (
-              <>
-                <ChevronUp className="w-3 h-3" />
-                Show less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-3 h-3" />
-                Show more
-              </>
-            )}
-          </button>
-        )}
+        {/* Actions for AI messages */}
+        {!isUser && message.content && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '16px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--border-color)'
+          }}>
+            {/* Copy Button */}
+            <button
+              onClick={handleCopy}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                color: copied ? 'var(--color-success)' : 'var(--text-secondary)',
+                background: 'transparent',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+            >
+              {copied ? <Check style={{ width: '14px', height: '14px' }} /> : <Copy style={{ width: '14px', height: '14px' }} />}
+              {copied ? '복사됨' : '복사'}
+            </button>
 
-        {!isUser && (
-          <>
-            {/* Confidence Bar */}
-            <div className="mt-3">
-              <ConfidenceBar confidence={confidence} size="sm" showWarning={false} />
-            </div>
+            {/* Divider */}
+            <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 4px' }} />
 
-            {/* Source Citations */}
-            <SourceCitations citations={citations} maxVisible={2} />
-
-            {/* Response Actions */}
-            <ResponseActions
-              messageId={message.id}
-              content={message.content}
-              isPinned={isPinned}
-              onPin={onPin}
-            />
-
-            {/* Follow-up Actions */}
-            <FollowUpActions
-              suggestions={followUpSuggestions}
-              onSelect={(s) => console.log("Selected:", s)}
-            />
-            
             {/* Feedback */}
-            <div className="mt-3 flex items-center gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/50">
-              <span className="text-xs text-muted-foreground mr-2">Was this helpful?</span>
-              <button 
-                onClick={() => handleFeedback(1)}
-                className={cn("p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors", feedback === 1 && "text-green-600 bg-green-50")}
-              >
-                <ThumbsUp className="w-3.5 h-3.5" />
-              </button>
-              <button 
-                onClick={() => setIsFeedbackOpen(true)}
-                className={cn("p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors", feedback === -1 && "text-red-600 bg-red-50")}
-              >
-                <ThumbsDown className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </>
+            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginRight: '4px' }}>
+              도움이 되었나요?
+            </span>
+            <button
+              onClick={() => handleFeedback(1)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                background: feedback === 1 ? 'rgba(34, 197, 94, 0.1)' : 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                color: feedback === 1 ? 'rgb(34, 197, 94)' : 'var(--text-tertiary)',
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+            >
+              <ThumbsUp style={{ width: '14px', height: '14px' }} />
+            </button>
+            <button
+              onClick={() => handleFeedback(-1)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                background: feedback === -1 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                color: feedback === -1 ? 'rgb(239, 68, 68)' : 'var(--text-tertiary)',
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
+            >
+              <ThumbsDown style={{ width: '14px', height: '14px' }} />
+            </button>
+          </div>
         )}
       </div>
-
-      <FeedbackDialog 
-        isOpen={isFeedbackOpen} 
-        onClose={() => setIsFeedbackOpen(false)}
-        onSubmit={(reason) => handleFeedback(-1, reason)}
-      />
     </div>
   );
 }

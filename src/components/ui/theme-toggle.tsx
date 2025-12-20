@@ -23,14 +23,14 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-      title="Toggle Theme"
+      title="테마 변경"
     >
       {theme === "light" ? (
         <Sun className="h-4 w-4" />
       ) : (
         <Moon className="h-4 w-4" />
       )}
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">테마 변경</span>
     </Button>
   );
 }

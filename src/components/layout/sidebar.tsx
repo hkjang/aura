@@ -150,7 +150,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
 
   return (
     <aside className={cn(styles.sidebar, mobileOpen && styles.mobileOpen)}>
-      <Link href="/" className={styles.logo}>
+      <Link href="/dashboard" className={styles.logo}>
         <span className="text-violet-600 mr-2">✦</span> Aura Portal
       </Link>
 
@@ -163,7 +163,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
         className="mx-3 mb-4 flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
       >
         <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">Search...</span>
+        <span className="flex-1 text-left">검색...</span>
         <kbd className="text-xs px-1.5 py-0.5 bg-white dark:bg-zinc-900 rounded border border-zinc-200 dark:border-zinc-700">⌘K</kbd>
       </button>
       

@@ -6,10 +6,10 @@ export async function GET() {
   try {
     const password = await hash('admin123', 12);
     const user = await prisma.user.upsert({
-      where: { email: 'admin@aura.com' },
+      where: { email: 'admin@aura.local' },
       update: {},
       create: {
-        email: 'admin@aura.com',
+        email: 'admin@aura.local',
         name: 'Admin User',
         password,
         role: 'ADMIN',

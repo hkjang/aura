@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   ChevronDown, 
   Zap, 
-  Clock, 
   DollarSign, 
   Brain,
-  Sparkles,
-  Eye,
-  Info
+  Eye
 } from "lucide-react";
 
 export interface ModelInfo {
@@ -29,7 +26,7 @@ const models: ModelInfo[] = [
     id: "gpt-4o",
     name: "GPT-4o",
     provider: "OpenAI",
-    description: "Most capable model with vision and fast inference",
+    description: "가장 뛰어난 모델, 비전 및 빠른 추론 지원",
     speed: "fast",
     cost: "high",
     capabilities: ["text", "vision", "code", "reasoning"],
@@ -40,7 +37,7 @@ const models: ModelInfo[] = [
     id: "gpt-4o-mini",
     name: "GPT-4o Mini",
     provider: "OpenAI",
-    description: "Fast and cost-effective for simple tasks",
+    description: "간단한 작업에 빠르고 경제적",
     speed: "fast",
     cost: "low",
     capabilities: ["text", "vision", "code"],
@@ -50,7 +47,7 @@ const models: ModelInfo[] = [
     id: "claude-3.5-sonnet",
     name: "Claude 3.5 Sonnet",
     provider: "Anthropic",
-    description: "Excellent reasoning and long context",
+    description: "뛰어난 추론과 긴 컨텍스트",
     speed: "medium",
     cost: "medium",
     capabilities: ["text", "vision", "code", "reasoning"],
@@ -60,7 +57,7 @@ const models: ModelInfo[] = [
     id: "gemini-2.0-flash",
     name: "Gemini 2.0 Flash",
     provider: "Google",
-    description: "Fast multimodal model",
+    description: "빠른 멀티모달 모델",
     speed: "fast",
     cost: "low",
     capabilities: ["text", "vision", "code"],
@@ -69,8 +66,8 @@ const models: ModelInfo[] = [
   {
     id: "llama-3.1-70b",
     name: "Llama 3.1 70B",
-    provider: "vLLM (Local)",
-    description: "Open source, on-premise deployment",
+    provider: "vLLM (로컬)",
+    description: "오픈소스, 온프레미스 배포",
     speed: "medium",
     cost: "low",
     capabilities: ["text", "code"],
@@ -84,53 +81,133 @@ const speedColors = {
   slow: "text-red-600 bg-red-50",
 };
 
+const speedLabels: Record<string, string> = {
+  fast: "빠름",
+  medium: "보통",
+  slow: "느림"
+};
+
 const costColors = {
   low: "text-green-600 bg-green-50",
   medium: "text-amber-600 bg-amber-50",
   high: "text-red-600 bg-red-50",
 };
 
+const costLabels: Record<string, string> = {
+  low: "저렴",
+  medium: "보통",
+  high: "비쌈"
+};
+
 interface ModelSelectorProps {
   selectedModelId: string;
   onModelChange: (modelId: string) => void;
+  models?: ModelInfo[];
 }
 
-export function ModelSelector({ selectedModelId, onModelChange }: ModelSelectorProps) {
+export function ModelSelector({ selectedModelId, onModelChange, models: customModels }: ModelSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredModel, setHoveredModel] = useState<ModelInfo | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const selectedModel = models.find((m) => m.id === selectedModelId) || models[0];
+  const displayModels = customModels && customModels.length > 0 ? customModels : models;
+  const selectedModel = displayModels.find((m) => m.id === selectedModelId) || displayModels[0];
+
+  // Calculate dropdown position when opening
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Position above the button
+      setDropdownPosition({
+        left: rect.left,
+        top: rect.top - 8 // 8px margin above button
+      });
+    }
+  }, [isOpen]);
 
   return (
-    <div className="relative">
+    <div style={{ position: 'relative' }}>
       {/* Trigger Button */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 14px',
+          fontSize: '14px',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
+          transition: 'all 150ms ease'
+        }}
       >
-        <Brain className="w-4 h-4 text-violet-500" />
-        <span className="font-medium">{selectedModel.name}</span>
-        <span className="text-xs text-muted-foreground">{selectedModel.provider}</span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <Brain style={{ width: '16px', height: '16px', color: 'var(--color-primary)' }} />
+        <span style={{ fontWeight: 500 }}>{selectedModel.name}</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{selectedModel.provider}</span>
+        <ChevronDown 
+          style={{ 
+            width: '14px', 
+            height: '14px', 
+            color: 'var(--text-secondary)',
+            transition: 'transform 150ms ease',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+          }} 
+        />
       </button>
 
       {/* Dropdown */}
       {isOpen && (
         <>
+          {/* Backdrop */}
           <div 
-            className="fixed inset-0 z-40" 
             onClick={() => setIsOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9997,
+              background: 'transparent'
+            }}
           />
-          <div className="absolute left-0 top-full mt-2 z-50 flex gap-2">
+          
+          {/* Dropdown Menu - Fixed position above button */}
+          <div style={{
+            position: 'fixed',
+            left: `${dropdownPosition.left}px`,
+            bottom: `calc(100vh - ${dropdownPosition.top}px)`,
+            zIndex: 9998,
+            display: 'flex',
+            gap: '8px'
+          }}>
             {/* Model List */}
-            <div className="w-80 bg-white dark:bg-zinc-900 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-              <div className="p-3 border-b border-zinc-200 dark:border-zinc-800">
-                <h3 className="font-semibold">Select Model</h3>
-                <p className="text-xs text-muted-foreground">Choose the AI model for your query</p>
+            <div style={{
+              width: '320px',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-lg)',
+              overflow: 'hidden'
+            }}>
+              <div style={{ 
+                padding: '12px 16px', 
+                borderBottom: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)'
+              }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  모델 선택
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  쿼리에 사용할 AI 모델을 선택하세요
+                </p>
               </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {models.map((model) => (
+              
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {displayModels.map((model) => (
                   <button
                     key={model.id}
                     type="button"
@@ -140,30 +217,61 @@ export function ModelSelector({ selectedModelId, onModelChange }: ModelSelectorP
                     }}
                     onMouseEnter={() => setHoveredModel(model)}
                     onMouseLeave={() => setHoveredModel(null)}
-                    className={`w-full px-3 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${
-                      selectedModel.id === model.id ? "bg-violet-50 dark:bg-violet-900/20" : ""
-                    }`}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: selectedModel.id === model.id ? 'var(--color-primary-light)' : 'transparent',
+                      cursor: 'pointer',
+                      transition: 'background 100ms ease',
+                      borderBottom: '1px solid var(--border-color)'
+                    }}
+                    onMouseOver={(e) => {
+                      if (selectedModel.id !== model.id) {
+                        e.currentTarget.style.background = 'var(--bg-tertiary)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (selectedModel.id !== model.id) {
+                        e.currentTarget.style.background = 'transparent';
+                      }
+                    }}
                   >
-                    <div className="flex items-start justify-between">
+                    <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{model.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ 
+                            fontWeight: 500, 
+                            color: selectedModel.id === model.id ? 'var(--color-primary)' : 'var(--text-primary)' 
+                          }}>
+                            {model.name}
+                          </span>
                           {model.recommended && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-violet-100 dark:bg-violet-900/30 text-violet-600 rounded">
-                              RECOMMENDED
+                            <span style={{ 
+                              padding: '2px 6px',
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              background: 'var(--color-primary-light)', 
+                              color: 'var(--color-primary)',
+                              borderRadius: '4px'
+                            }}>
+                              추천
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{model.provider}</p>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          {model.provider}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div style={{ display: 'flex', gap: '4px' }}>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${speedColors[model.speed]}`}>
-                          <Zap className="w-3 h-3 inline mr-0.5" />
-                          {model.speed}
+                          <Zap style={{ width: '10px', height: '10px', display: 'inline', marginRight: '2px' }} />
+                          {speedLabels[model.speed]}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${costColors[model.cost]}`}>
-                          <DollarSign className="w-3 h-3 inline" />
-                          {model.cost}
+                          <DollarSign style={{ width: '10px', height: '10px', display: 'inline' }} />
+                          {costLabels[model.cost]}
                         </span>
                       </div>
                     </div>
@@ -174,42 +282,61 @@ export function ModelSelector({ selectedModelId, onModelChange }: ModelSelectorP
 
             {/* Model Details Tooltip */}
             {hoveredModel && (
-              <div className="w-64 bg-white dark:bg-zinc-900 rounded-xl shadow-xl border border-zinc-200 dark:border-zinc-800 p-4 animate-in slide-in-from-left-2 duration-150">
-                <h4 className="font-semibold mb-2">{hoveredModel.name}</h4>
-                <p className="text-sm text-muted-foreground mb-3">{hoveredModel.description}</p>
+              <div style={{
+                width: '256px',
+                padding: '16px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-lg)'
+              }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+                  {hoveredModel.name}
+                </h4>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                  {hoveredModel.description}
+                </p>
                 
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Speed
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                      <Zap style={{ width: '12px', height: '12px' }} /> 속도
                     </span>
                     <span className={`px-2 py-0.5 rounded ${speedColors[hoveredModel.speed]}`}>
-                      {hoveredModel.speed}
+                      {speedLabels[hoveredModel.speed]}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" /> Cost
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                      <DollarSign style={{ width: '12px', height: '12px' }} /> 비용
                     </span>
                     <span className={`px-2 py-0.5 rounded ${costColors[hoveredModel.cost]}`}>
-                      {hoveredModel.cost}
+                      {costLabels[hoveredModel.cost]}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> Context
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                      <Eye style={{ width: '12px', height: '12px' }} /> 컨텍스트
                     </span>
-                    <span>{(hoveredModel.contextWindow / 1000).toFixed(0)}K tokens</span>
+                    <span style={{ color: 'var(--text-primary)' }}>
+                      {(hoveredModel.contextWindow / 1000).toFixed(0)}K 토큰
+                    </span>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800">
-                  <span className="text-xs text-muted-foreground">Capabilities</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>기능</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
                     {hoveredModel.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className="px-2 py-0.5 text-xs bg-zinc-100 dark:bg-zinc-800 rounded"
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '11px',
+                          background: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          borderRadius: '4px'
+                        }}
                       >
                         {cap}
                       </span>

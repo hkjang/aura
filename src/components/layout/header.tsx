@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import styles from "./header.module.css";
 import { Menu, Bell } from "lucide-react";
+import { Breadcrumb } from "./breadcrumb";
+import { UserNav } from "./user-nav";
 
 export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
@@ -12,15 +14,21 @@ export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
         <Button variant="ghost" size="icon" className={styles.menuBtn} onClick={onMenuClick}>
           <Menu className="w-5 h-5" />
         </Button>
-        {/* Breadcrumb could go here */}
+        <Breadcrumb />
       </div>
 
       <div className={styles.right}>
         <ThemeToggle />
-        <Button variant="ghost" size="icon">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          title="알림"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <Bell className="w-5 h-5" />
         </Button>
-        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700" />
+        <div style={{ height: '24px', width: '1px', background: 'var(--border-color)', margin: '0 8px' }} />
+        <UserNav />
       </div>
     </header>
   );

@@ -56,7 +56,7 @@ export default function LoginPage() {
             <Input 
               label="Email" 
               type="email" 
-              placeholder="admin@aura.com"
+              placeholder="admin@aura.local"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               required

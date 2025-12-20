@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
 import { Send, StopCircle, Settings2, ArrowUp } from "lucide-react";
@@ -16,13 +15,138 @@ export default function ChatInterface() {
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setInput } = useChat({
-    api: "/api/chat",
-    body: {
-      model: selectedModel,
-      systemPrompt,
-    },
-  } as any) as any;
+  // Dynamic Model State
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const res = await fetch("/api/admin/models");
+        if (res.ok) {
+          const data = await res.json();
+          // Transform API models to ModelInfo format
+          const mappedModels = data.models.map((m: any) => ({
+             id: m.modelId, // Use the actual model ID (e.g. gpt-4) for the API
+             name: m.name,
+             provider: m.provider,
+             description: `${m.provider} model (${m.modelId})`,
+             speed: "medium", // Default
+             cost: "medium",  // Default
+             capabilities: ["text", "code"], // Default
+             contextWindow: 128000, // Default
+             recommended: false
+          }));
+          
+          if (mappedModels.length > 0) {
+            setAvailableModels(mappedModels);
+            // Ensure selected model is valid
+            if (!mappedModels.find((m: any) => m.id === selectedModel)) {
+              setSelectedModel(mappedModels[0].id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch models:", error);
+      } finally {
+        setIsModelsLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []); // Run once on mount
+  
+  // Local input state for controlled input
+  const [inputValue, setInputValue] = useState("");
+  
+  // Chat state - managed locally since useChat hook is unreliable
+  const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Stop generation
+  const stop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+    }
+  };
+
+  // Handle sending message 
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!inputValue.trim() || isLoading) return;
+    
+    const content = inputValue;
+    const userMessage = { id: `user-${Date.now()}`, role: 'user' as const, content };
+    
+    setInputValue(""); // Clear immediately
+    setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    
+    const assistantMessage = { id: `assistant-${Date.now()}`, role: 'assistant' as const, content: '' };
+    setMessages(prev => [...prev, assistantMessage]);
+    
+    try {
+      abortControllerRef.current = new AbortController();
+      
+      const currentProvider = availableModels.find((m: any) => m.id === selectedModel)?.provider || "openai";
+      
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
+          model: selectedModel,
+          provider: currentProvider,
+          systemPrompt
+        }),
+        signal: abortControllerRef.current.signal
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          fullContent += chunk;
+          
+          // Update the assistant message with streaming content
+          setMessages(prev => prev.map(m => 
+            m.id === assistantMessage.id 
+              ? { ...m, content: fullContent }
+              : m
+          ));
+        }
+      }
+      
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Request aborted');
+      } else {
+        console.error("Failed to send:", error);
+        // Remove the empty assistant message on error
+        setMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
+      }
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -43,7 +167,7 @@ export default function ChatInterface() {
   }, [messages]);
 
   const handleSuggestionSelect = (suggestion: string) => {
-    setInput(suggestion);
+    setInputValue(suggestion);
   };
 
   const handlePinMessage = (messageId: string, pinned: boolean) => {
@@ -92,7 +216,7 @@ export default function ChatInterface() {
             <div style={{ width: '100%', maxWidth: '700px' }}>
               <SuggestionPanel 
                 onSelectSuggestion={handleSuggestionSelect}
-                currentInput={input}
+                currentInput={inputValue}
               />
             </div>
           </div>
@@ -144,6 +268,7 @@ export default function ChatInterface() {
         background: 'var(--bg-primary)',
         borderTop: '1px solid var(--border-color)',
         padding: '20px 24px',
+        zIndex: 30 // Below modals (modals use 50)
       }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           {/* Controls */}
@@ -157,6 +282,7 @@ export default function ChatInterface() {
             <ModelSelector 
               selectedModelId={selectedModel}
               onModelChange={setSelectedModel}
+              models={availableModels.length > 0 ? availableModels : undefined}
             />
             
             <button
@@ -200,7 +326,7 @@ export default function ChatInterface() {
           </div>
 
           {/* Input Box */}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSendMessage}>
             <div style={{
               display: 'flex',
               alignItems: 'flex-end',
@@ -208,13 +334,22 @@ export default function ChatInterface() {
               border: '2px solid var(--border-color-strong)',
               borderRadius: 'var(--radius-xl)',
               padding: '8px 12px',
-              transition: 'border-color 150ms ease'
+              transition: 'border-color 150ms ease',
+              position: 'relative',
+              zIndex: 31, // Slightly above input container
             }}>
               <textarea
-                value={input || ""}
-                onChange={handleInputChange as any}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="Aura에게 메시지 보내기..."
                 rows={1}
+                disabled={false} // Explicitly enable
                 style={{
                   flex: 1,
                   resize: 'none',
@@ -244,7 +379,7 @@ export default function ChatInterface() {
               
               <button
                 type={isLoading ? "button" : "submit"}
-                disabled={!(input || "").trim() && !isLoading}
+                disabled={!inputValue.trim() && !isLoading}
                 onClick={isLoading ? stop : undefined}
                 style={{
                   display: 'flex',
@@ -252,11 +387,11 @@ export default function ChatInterface() {
                   justifyContent: 'center',
                   width: '44px',
                   height: '44px',
-                  background: (input || "").trim() || isLoading ? 'var(--color-primary)' : 'var(--bg-tertiary)',
-                  color: (input || "").trim() || isLoading ? 'var(--color-white)' : 'var(--text-tertiary)',
+                  background: inputValue.trim() || isLoading ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+                  color: inputValue.trim() || isLoading ? 'var(--color-white)' : 'var(--text-tertiary)',
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
-                  cursor: (input || "").trim() || isLoading ? 'pointer' : 'not-allowed',
+                  cursor: inputValue.trim() || isLoading ? 'pointer' : 'not-allowed',
                   transition: 'all 150ms ease'
                 }}
               >

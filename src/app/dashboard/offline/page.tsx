@@ -1,10 +1,8 @@
-
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, CloudOff, Package, Check, AlertTriangle } from "lucide-react";
 
-// Prevent static prerendering
 export const dynamic = 'force-dynamic';
 
 // Mock state
@@ -15,73 +13,88 @@ const syncState = {
 };
 
 const offlinePackages = [
-  { id: "1", name: "Core AI Models", version: "2.1.0", size: "450 MB", status: "installed" },
-  { id: "2", name: "Policy Engine", version: "1.5.0", size: "85 MB", status: "installed" },
-  { id: "3", name: "RAG Knowledge Pack", version: "3.0.0-rc1", size: "1.2 GB", status: "available" },
+  { id: "1", name: "Core AI 모델", version: "2.1.0", size: "450 MB", status: "설치됨" },
+  { id: "2", name: "정책 엔진", version: "1.5.0", size: "85 MB", status: "설치됨" },
+  { id: "3", name: "RAG 지식 팩", version: "3.0.0-rc1", size: "1.2 GB", status: "사용 가능" },
 ];
 
 export default function OfflineDashboardPage() {
   return (
-    <div className="p-6 space-y-8">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Offline & Air-gapped Operations</h1>
-        <p className="text-muted-foreground">Manage synchronization and offline deployment packages.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>오프라인 & 에어갭 운영</h1>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+          동기화 및 오프라인 배포 패키지를 관리하세요.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         {/* Sync Status */}
-        <div className="lg:col-span-2 space-y-6">
+        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${syncState.status === "synced" ? "bg-emerald-100" : syncState.status === "pending" ? "bg-amber-100" : "bg-zinc-100"}`}>
-                  {syncState.status === "synced" ? <Check className="w-5 h-5 text-emerald-600" /> :
-                   syncState.status === "pending" ? <AlertTriangle className="w-5 h-5 text-amber-600" /> :
-                   <CloudOff className="w-5 h-5 text-zinc-600" />}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ 
+                  padding: '10px', 
+                  borderRadius: 'var(--radius-md)', 
+                  background: syncState.status === "synced" ? '#dcfce7' : '#fef3c7' 
+                }}>
+                  {syncState.status === "synced" ? 
+                    <Check style={{ width: '20px', height: '20px', color: 'var(--color-success)' }} /> :
+                    <AlertTriangle style={{ width: '20px', height: '20px', color: 'var(--color-warning)' }} />
+                  }
                 </div>
                 <div>
-                  <h3 className="font-semibold">Sync Status</h3>
-                  <p className="text-xs text-muted-foreground">Last sync: {syncState.lastSyncTime}</p>
+                  <h3 style={{ fontWeight: 600, color: 'var(--text-primary)' }}>동기화 상태</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>마지막 동기화: {syncState.lastSyncTime}</p>
                 </div>
               </div>
-              <Badge variant={syncState.status === "synced" ? "default" : "secondary"} className="capitalize">
-                {syncState.status}
-              </Badge>
+              <span className={`status ${syncState.status === "synced" ? 'status-success' : 'status-warning'}`}>
+                {syncState.status === "synced" ? "동기화됨" : "대기 중"}
+              </span>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg">
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              padding: '16px', 
+              background: 'var(--bg-secondary)', 
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-color)'
+            }}>
               <div>
-                <p className="text-sm font-medium">Pending Changes</p>
-                <p className="text-2xl font-bold text-amber-600">{syncState.pendingChanges}</p>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>대기 중인 변경</p>
+                <p style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-warning)' }}>{syncState.pendingChanges}</p>
               </div>
               <Button>
-                <RefreshCw className="w-4 h-4 mr-2" /> Sync Now
+                <RefreshCw style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 지금 동기화
               </Button>
             </div>
           </Card>
 
-          <h2 className="text-lg font-semibold">Offline Packages</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>오프라인 패키지</h2>
+          <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
             {offlinePackages.map(pkg => (
               <Card key={pkg.id} className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Package className="w-5 h-5 text-blue-600" />
+                <div style={{ display: 'flex', alignItems: 'start', gap: '12px' }}>
+                  <div style={{ padding: '10px', background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)' }}>
+                    <Package style={{ width: '20px', height: '20px', color: 'var(--color-primary)' }} />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm">{pkg.name}</h3>
-                      <Badge variant={pkg.status === "installed" ? "default" : "outline"}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h3 style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>{pkg.name}</h3>
+                      <span className={`status ${pkg.status === "설치됨" ? 'status-success' : 'status-info'}`}>
                         {pkg.status}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                       v{pkg.version} • {pkg.size}
                     </p>
                   </div>
                 </div>
-                {pkg.status === "available" && (
-                  <Button size="sm" className="w-full mt-4">Install Package</Button>
+                {pkg.status === "사용 가능" && (
+                  <Button size="sm" style={{ width: '100%', marginTop: '12px' }}>패키지 설치</Button>
                 )}
               </Card>
             ))}
@@ -89,34 +102,34 @@ export default function OfflineDashboardPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
-          <h2 className="text-lg font-semibold">Quick Actions</h2>
-          <div className="grid gap-3">
-            <Button variant="outline" className="justify-start">
-              <Package className="w-4 h-4 mr-2" /> Create Offline Bundle
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>빠른 작업</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <Button variant="outline" style={{ justifyContent: 'flex-start' }}>
+              <Package style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 오프라인 번들 생성
             </Button>
-            <Button variant="outline" className="justify-start">
-              <CloudOff className="w-4 h-4 mr-2" /> Export Logs
+            <Button variant="outline" style={{ justifyContent: 'flex-start' }}>
+              <CloudOff style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 로그 내보내기
             </Button>
-            <Button variant="outline" className="justify-start">
-              <RefreshCw className="w-4 h-4 mr-2" /> Force Re-sync
+            <Button variant="outline" style={{ justifyContent: 'flex-start' }}>
+              <RefreshCw style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 강제 재동기화
             </Button>
           </div>
 
-          <Card className="p-4 mt-6">
-            <h3 className="font-semibold text-sm mb-2">System Info</h3>
-            <ul className="space-y-2 text-xs text-muted-foreground">
-              <li className="flex justify-between">
-                <span>Mode:</span>
-                <span className="font-medium text-amber-600">Air-gapped</span>
+          <Card className="p-4">
+            <h3 style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)', marginBottom: '12px' }}>시스템 정보</h3>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <li style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>모드:</span>
+                <span style={{ fontWeight: 500, color: 'var(--color-warning)' }}>에어갭</span>
               </li>
-              <li className="flex justify-between">
-                <span>Storage Used:</span>
+              <li style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>스토리지 사용:</span>
                 <span>2.4 GB / 10 GB</span>
               </li>
-              <li className="flex justify-between">
-                <span>Offline Since:</span>
-                <span>3 days ago</span>
+              <li style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>오프라인 기간:</span>
+                <span>3일 전</span>
               </li>
             </ul>
           </Card>
