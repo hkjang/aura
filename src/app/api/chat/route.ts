@@ -137,14 +137,13 @@ export async function POST(req: Request) {
     // Verify tool support: sending tools to models that don't support them (like some Ollama models) causes 400 errors.
     const supportsTools = providerId !== 'ollama'; 
 
-    // Inject system prompt if provided
-    const finalMessages = systemPrompt 
-      ? [{ role: 'system' as const, content: systemPrompt }, ...messages]
-      : messages;
+    console.log("DEBUG: systemPrompt received:", systemPrompt);
+    console.log("DEBUG: messages count:", messages.length);
 
     const result = await streamText({
       model: languageModel,
-      messages: finalMessages,
+      system: systemPrompt || undefined,
+      messages,
       tools: supportsTools ? activeTools : undefined, // Only pass tools if supported
       onFinish: async ({ usage }) => {
         // Usage types might vary in recent SDK versions

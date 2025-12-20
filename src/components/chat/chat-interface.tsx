@@ -178,6 +178,8 @@ export default function ChatInterface() {
       
       const currentProvider = availableModels.find((m: any) => m.id === selectedModel)?.provider || "openai";
       
+      console.log("DEBUG: Sending with systemPrompt:", systemPrompt);
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -331,7 +333,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Area */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingTop: '48px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingTop: '48px', paddingBottom: '200px' }}>
         {messages.length === 0 ? (
           <div style={{ 
             display: 'flex', 
