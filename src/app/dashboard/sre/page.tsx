@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Activity, Bell, Server, Database, Cpu, AlertTriangle } from "lucide-react";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock data
 const healthChecks = [
   { service: "API Gateway", status: "healthy", latency: 23, icon: Server },

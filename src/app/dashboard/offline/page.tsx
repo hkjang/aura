@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, CloudOff, Package, Check, AlertTriangle } from "lucide-react";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock state
 const syncState = {
   lastSyncTime: "2024-12-20 10:30 AM",

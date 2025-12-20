@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, Download, Shield, Star } from "lucide-react";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock data
 const installedPlugins = [
   { id: "1", name: "RAG Enhancer", version: "1.2.0", author: "Aura Team", category: "AI", status: "active", rating: 4.8 },

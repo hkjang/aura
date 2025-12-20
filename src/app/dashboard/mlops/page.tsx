@@ -2,6 +2,9 @@
 import { Card } from "@/components/ui/card";
 import { DeploymentCard } from "@/components/mlops/deployment-card";
 
+// Prevent static prerendering
+export const dynamic = 'force-dynamic';
+
 // Mock data
 const deployments = [
   { id: "1", name: "gpt-3.5-turbo", version: "2024-v2-opt", endpoint: "https://api.openai.com/v1", status: "ACTIVE", strategy: "ROLLING", trafficSplit: 100 },
