@@ -12,13 +12,21 @@ import {
   Bot,
   Users,
   Activity,
-  ShieldAlert
+  ShieldAlert,
+  Scale,
+  DollarSign,
+  Shield,
+  Rocket,
+  Brain,
+  Puzzle,
+  CloudOff,
+  HeartPulse,
+  Sparkles
 } from "lucide-react";
 
 export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; setMobileOpen?: (open: boolean) => void }) {
   const pathname = usePathname();
 
-  // Static navigation labels (was using useTranslations which fails during prerender)
   const navItems = [
     {
       group: "Overview",
@@ -28,8 +36,28 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       ]
     },
     {
-      group: "Work",
+      group: "AI Features",
       items: [
+        { label: "Model Compare", href: "/dashboard/compare", icon: Scale },
+        { label: "Quality", href: "/dashboard/quality", icon: Sparkles },
+        { label: "Agents", href: "/dashboard/agents", icon: Bot },
+        { label: "Knowledge", href: "/dashboard/knowledge", icon: Brain },
+      ]
+    },
+    {
+      group: "Enterprise",
+      items: [
+        { label: "Cost", href: "/dashboard/cost", icon: DollarSign },
+        { label: "Governance", href: "/dashboard/governance", icon: Shield },
+        { label: "MLOps", href: "/dashboard/mlops", icon: Rocket },
+        { label: "Plugins", href: "/dashboard/plugins", icon: Puzzle },
+      ]
+    },
+    {
+      group: "Operations",
+      items: [
+        { label: "SRE", href: "/dashboard/sre", icon: HeartPulse },
+        { label: "Offline", href: "/dashboard/offline", icon: CloudOff },
         { label: "Documents", href: "/dashboard/documents", icon: Files },
         { label: "Prompts", href: "/dashboard/prompts", icon: Bot },
       ]
