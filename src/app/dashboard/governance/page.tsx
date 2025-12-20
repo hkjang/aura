@@ -1,84 +1,96 @@
-
 import { Card } from "@/components/ui/card";
 import { PolicyCard } from "@/components/governance/policy-card";
 
-// Prevent static prerendering
 export const dynamic = 'force-dynamic';
 
 // Mock data for MVP
 const policies = [
-  { id: "1", name: "Block Competitors", type: "BLOCK_KEYWORD", action: "BLOCK", isActive: true, description: "Prevents users from mentioning specific competitor names in prompts." },
-  { id: "2", name: "PII Detection", type: "PII_FILTER", action: "MASK", isActive: true, description: "Detects and masks emails, phone numbers, and SSNs in outputs." },
-  { id: "3", name: "Financial Advice Filter", type: "TOPIC_BAN", action: "FLAG", isActive: false, description: "Flags requests asking for specific investment advice or stock tips." },
-  { id: "4", name: "System Prompt Injection", type: "REGEX", action: "BLOCK", isActive: true, description: "Blocks attempts to override system instructions via 'Ignore previous instructions'." },
+  { id: "1", name: "경쟁사 차단", type: "BLOCK_KEYWORD", action: "BLOCK", isActive: true, description: "프롬프트에서 특정 경쟁사 이름 언급을 차단합니다." },
+  { id: "2", name: "개인정보 탐지", type: "PII_FILTER", action: "MASK", isActive: true, description: "출력에서 이메일, 전화번호, 주민번호를 감지하고 마스킹합니다." },
+  { id: "3", name: "금융 조언 필터", type: "TOPIC_BAN", action: "FLAG", isActive: false, description: "특정 투자 조언이나 주식 팁을 요청하는 내용을 플래그합니다." },
+  { id: "4", name: "시스템 프롬프트 인젝션", type: "REGEX", action: "BLOCK", isActive: true, description: "'이전 지시 무시' 등을 통한 시스템 지시 우회 시도를 차단합니다." },
 ];
 
 const auditLogs = [
-  { id: "1", user: "user-123", action: "CHAT_REQUEST", resource: "model-inference", status: "BLOCKED", details: "Competitor mention", time: "2 mins ago" },
-  { id: "2", user: "user-456", action: "CHAT_REQUEST", resource: "model-inference", status: "ALLOWED", details: "-", time: "5 mins ago" },
-  { id: "3", user: "admin-1", action: "UPDATE_POLICY", resource: "policy-2", status: "SUCCESS", details: "Changed action to MASK", time: "1 hour ago" },
-  { id: "4", user: "user-789", action: "CHAT_REQUEST", resource: "model-inference", status: "FLAGGED", details: "Potential PII", time: "3 hours ago" },
+  { id: "1", user: "user-123", action: "채팅 요청", resource: "model-inference", status: "차단됨", details: "경쟁사 언급", time: "2분 전" },
+  { id: "2", user: "user-456", action: "채팅 요청", resource: "model-inference", status: "허용됨", details: "-", time: "5분 전" },
+  { id: "3", user: "admin-1", action: "정책 수정", resource: "policy-2", status: "성공", details: "액션을 MASK로 변경", time: "1시간 전" },
+  { id: "4", user: "user-789", action: "채팅 요청", resource: "model-inference", status: "플래그됨", details: "PII 가능성", time: "3시간 전" },
 ];
 
 export default function GovernanceDashboardPage() {
   return (
-    <div className="p-6 space-y-8">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">AI Governance & Control</h1>
-        <p className="text-muted-foreground">Manage usage policies, view audit logs, and control AI safety guardrails.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>AI 거버넌스 & 제어</h1>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+          사용 정책을 관리하고, 감사 로그를 확인하며, AI 안전 가드레일을 제어하세요.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         {/* Policy Management Column */}
-        <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-lg font-semibold">Active Policies</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>활성 정책</h2>
+            <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                 {policies.map(p => (
                     <PolicyCard key={p.id} policy={p} />
                 ))}
             </div>
 
-            <div className="mt-8">
-                 <h2 className="text-lg font-semibold mb-4">Security Insights</h2>
-                 <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="p-4 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
-                        <p className="text-xs font-medium text-red-600 dark:text-red-400">Blocked Requests (24h)</p>
-                        <h3 className="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">12</h3>
+            <div style={{ marginTop: '16px' }}>
+                 <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>보안 인사이트</h2>
+                 <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                    <Card className="p-4" style={{ background: '#fee2e2', borderColor: 'var(--color-error)' }}>
+                        <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-error)' }}>차단된 요청 (24시간)</p>
+                        <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-error)', marginTop: '4px' }}>12</h3>
                     </Card>
-                    <Card className="p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900">
-                        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Flagged Incidents</p>
-                        <h3 className="text-2xl font-bold text-amber-700 dark:text-amber-300 mt-1">45</h3>
+                    <Card className="p-4" style={{ background: '#fef3c7', borderColor: 'var(--color-warning)' }}>
+                        <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-warning)' }}>플래그된 사건</p>
+                        <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-warning)', marginTop: '4px' }}>45</h3>
                     </Card>
                      <Card className="p-4">
-                        <p className="text-xs font-medium text-muted-foreground">Active Rules</p>
-                        <h3 className="text-2xl font-bold mt-1">104</h3>
+                        <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>활성 규칙</p>
+                        <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>104</h3>
                     </Card>
                  </div>
             </div>
         </div>
 
         {/* Audit Log Column */}
-        <div className="lg:col-span-1">
-             <h2 className="text-lg font-semibold mb-4">Recent Audit Logs</h2>
-             <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {auditLogs.map(log => (
-                    <div key={log.id} className="p-4 text-sm">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${
-                                log.status === 'BLOCKED' ? 'bg-red-100 text-red-700' :
-                                log.status === 'FLAGGED' ? 'bg-amber-100 text-amber-700' :
-                                'bg-emerald-100 text-emerald-700'
+        <div>
+             <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>최근 감사 로그</h2>
+             <Card>
+                {auditLogs.map((log, idx) => (
+                    <div key={log.id} style={{ 
+                      padding: '16px', 
+                      borderBottom: idx < auditLogs.length - 1 ? '1px solid var(--border-color)' : 'none' 
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
+                            <span className={`status ${
+                                log.status === '차단됨' ? 'status-error' :
+                                log.status === '플래그됨' ? 'status-warning' :
+                                'status-success'
                             }`}>{log.status}</span>
-                            <span className="text-xs text-muted-foreground">{log.time}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{log.time}</span>
                         </div>
-                        <p className="font-medium mt-1">{log.action}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            User: {log.user} • {log.details}
+                        <p style={{ fontWeight: 500, color: 'var(--text-primary)', fontSize: '14px', marginTop: '4px' }}>{log.action}</p>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            사용자: {log.user} • {log.details}
                         </p>
                     </div>
                 ))}
-                <div className="p-3 text-center">
-                    <button className="text-xs text-violet-600 font-medium hover:underline">View All Logs</button>
+                <div style={{ padding: '12px', textAlign: 'center', borderTop: '1px solid var(--border-color)' }}>
+                    <button style={{ 
+                      fontSize: '13px', 
+                      color: 'var(--color-primary)', 
+                      fontWeight: 500, 
+                      background: 'none', 
+                      border: 'none', 
+                      cursor: 'pointer' 
+                    }}>
+                      전체 로그 보기
+                    </button>
                 </div>
              </Card>
         </div>

@@ -24,7 +24,6 @@ import {
   HeartPulse,
   Sparkles,
   Star,
-  StarOff,
   ChevronDown,
   ChevronRight,
   Search
@@ -102,10 +101,10 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       purpose: "use",
       defaultExpanded: true,
       items: [
-        { label: "Chat", href: "/dashboard/chat", icon: MessageSquare, description: "AI와 대화" },
-        { label: "Model Compare", href: "/dashboard/compare", icon: Scale, description: "모델 비교" },
-        { label: "Agents", href: "/dashboard/agents", icon: Bot, description: "AI 에이전트" },
-        { label: "Prompts", href: "/dashboard/prompts", icon: Sparkles, description: "프롬프트 관리" },
+        { label: "채팅", href: "/dashboard/chat", icon: MessageSquare, description: "AI와 대화" },
+        { label: "모델 비교", href: "/dashboard/compare", icon: Scale, description: "모델 비교" },
+        { label: "에이전트", href: "/dashboard/agents", icon: Bot, description: "AI 에이전트" },
+        { label: "프롬프트", href: "/dashboard/prompts", icon: Sparkles, description: "프롬프트 관리" },
       ]
     },
     {
@@ -113,10 +112,10 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       purpose: "manage",
       defaultExpanded: true,
       items: [
-        { label: "Knowledge", href: "/dashboard/knowledge", icon: Brain, description: "지식 베이스" },
-        { label: "Documents", href: "/dashboard/documents", icon: Files, description: "문서 관리" },
-        { label: "Plugins", href: "/dashboard/plugins", icon: Puzzle, description: "플러그인" },
-        { label: "Governance", href: "/dashboard/governance", icon: Shield, description: "거버넌스" },
+        { label: "지식 베이스", href: "/dashboard/knowledge", icon: Brain, description: "지식 베이스" },
+        { label: "문서", href: "/dashboard/documents", icon: Files, description: "문서 관리" },
+        { label: "플러그인", href: "/dashboard/plugins", icon: Puzzle, description: "플러그인" },
+        { label: "거버넌스", href: "/dashboard/governance", icon: Shield, description: "거버넌스" },
       ]
     },
     {
@@ -124,9 +123,9 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       purpose: "analyze",
       defaultExpanded: true,
       items: [
-        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, description: "대시보드" },
-        { label: "Quality", href: "/dashboard/quality", icon: Sparkles, description: "품질 분석" },
-        { label: "Cost", href: "/dashboard/cost", icon: DollarSign, description: "비용 분석" },
+        { label: "대시보드", href: "/dashboard", icon: LayoutDashboard, description: "대시보드" },
+        { label: "품질", href: "/dashboard/quality", icon: Sparkles, description: "품질 분석" },
+        { label: "비용", href: "/dashboard/cost", icon: DollarSign, description: "비용 분석" },
         { label: "MLOps", href: "/dashboard/mlops", icon: Rocket, description: "ML 운영" },
       ]
     },
@@ -136,11 +135,11 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       defaultExpanded: false,
       items: [
         { label: "SRE", href: "/dashboard/sre", icon: HeartPulse, description: "시스템 상태" },
-        { label: "Offline", href: "/dashboard/offline", icon: CloudOff, description: "오프라인 모드" },
-        { label: "Users", href: "/dashboard/users", icon: Users, description: "사용자 관리" },
-        { label: "Settings", href: "/dashboard/settings", icon: Settings, description: "설정" },
-        { label: "Logs", href: "/dashboard/logs", icon: Activity, description: "로그" },
-        { label: "Audit", href: "/dashboard/audit", icon: ShieldAlert, description: "감사" },
+        { label: "오프라인", href: "/dashboard/offline", icon: CloudOff, description: "오프라인 모드" },
+        { label: "사용자", href: "/dashboard/users", icon: Users, description: "사용자 관리" },
+        { label: "설정", href: "/dashboard/settings", icon: Settings, description: "설정" },
+        { label: "로그", href: "/dashboard/logs", icon: Activity, description: "로그" },
+        { label: "감사", href: "/dashboard/audit", icon: ShieldAlert, description: "감사" },
       ]
     }
   ];
@@ -222,23 +221,12 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
                       onClick={() => setMobileOpen?.(false)}
                       title={item.description}
                     >
-                      <Icon className="w-4 h-4" />
-                      {item.label}
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1">{item.label}</span>
+                      {isFav && (
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500 flex-shrink-0" />
+                      )}
                     </Link>
-                    <button
-                      onClick={(e) => toggleFavorite(item.href, e)}
-                      className={cn(
-                        "absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity",
-                        isFav ? "text-amber-500" : "text-muted-foreground hover:text-amber-500"
-                      )}
-                      title={isFav ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      {isFav ? (
-                        <Star className="w-3 h-3 fill-amber-500" />
-                      ) : (
-                        <StarOff className="w-3 h-3" />
-                      )}
-                    </button>
                   </div>
                 );
               })}

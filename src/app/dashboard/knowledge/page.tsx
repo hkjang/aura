@@ -1,12 +1,9 @@
-
 import { Card } from "@/components/ui/card";
 import { GraphView } from "@/components/knowledge/graph-view";
 import { KnowledgeService } from "@/lib/knowledge/knowledge-service";
 import { prisma } from "@/lib/prisma";
 
-// Prevent static prerendering (uses DB queries)
 export const dynamic = 'force-dynamic';
-
 
 export default async function KnowledgeDashboardPage() {
   const graphData = await KnowledgeService.getGraphData();
@@ -16,64 +13,66 @@ export default async function KnowledgeDashboardPage() {
   });
 
   return (
-    <div className="p-6 space-y-8">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Knowledge Graph & Search</h1>
-        <p className="text-muted-foreground">Explore relationships between documents and manage the knowledge base.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)' }}>지식 그래프 & 검색</h1>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+          문서 간의 관계를 탐색하고 지식 베이스를 관리하세요.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-         {/* Graph View */}
-         <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-lg font-semibold">Knowledge Network</h2>
+      <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+         <div style={{ gridColumn: 'span 2' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>지식 네트워크</h2>
             <GraphView data={graphData} />
          </div>
 
-         {/* Stats */}
-         <div className="space-y-6">
-            <h2 className="text-lg font-semibold">Stats</h2>
-            <div className="grid gap-4">
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>통계</h2>
+            <div style={{ display: 'grid', gap: '16px' }}>
                 <Card className="p-4">
-                     <p className="text-xs font-medium text-muted-foreground">Total Documents</p>
-                     <h3 className="text-2xl font-bold mt-1">{graphData.nodes.length}</h3>
+                     <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 문서</p>
+                     <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>{graphData.nodes.length}</h3>
                 </Card>
                 <Card className="p-4">
-                     <p className="text-xs font-medium text-muted-foreground">Indexed Relations</p>
-                     <h3 className="text-2xl font-bold mt-1 text-violet-600">{graphData.links.length}</h3>
+                     <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>인덱싱된 관계</p>
+                     <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-primary)', marginTop: '4px' }}>{graphData.links.length}</h3>
                 </Card>
             </div>
          </div>
       </div>
 
       <div>
-          <h2 className="text-lg font-semibold mb-4">Recent Documents</h2>
-          <Card className="overflow-hidden">
-            <table className="w-full text-sm text-left">
-                <thead className="bg-zinc-100 dark:bg-zinc-800 text-xs uppercase text-muted-foreground">
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>최근 문서</h2>
+          <div className="table-container">
+            <table className="table">
+                <thead>
                     <tr>
-                        <th className="px-4 py-3">Title</th>
-                        <th className="px-4 py-3">Created</th>
-                        <th className="px-4 py-3">Status</th>
+                        <th>제목</th>
+                        <th>생성일</th>
+                        <th>상태</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
+                <tbody>
                     {documents.map(doc => (
-                        <tr key={doc.id} className="bg-white dark:bg-zinc-900/50 hover:bg-zinc-50 dark:hover:bg-zinc-900">
-                            <td className="px-4 py-3 font-medium">{doc.title}</td>
-                            <td className="px-4 py-3">{new Date(doc.createdAt).toLocaleDateString()}</td>
-                            <td className="px-4 py-3">
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">Indexed</span>
+                        <tr key={doc.id}>
+                            <td style={{ fontWeight: 500 }}>{doc.title}</td>
+                            <td>{new Date(doc.createdAt).toLocaleDateString('ko-KR')}</td>
+                            <td>
+                                <span className="status status-success">인덱싱됨</span>
                             </td>
                         </tr>
                     ))}
                     {documents.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No documents found.</td>
+                            <td colSpan={3} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                              문서가 없습니다.
+                            </td>
                         </tr>
                     )}
                 </tbody>
             </table>
-          </Card>
+          </div>
       </div>
     </div>
   );

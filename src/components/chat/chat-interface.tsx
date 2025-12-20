@@ -3,26 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "./chat-message";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, StopCircle, Sparkles, Settings2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { FileUploader } from "./file-uploader";
+import { Send, StopCircle, Settings2, ArrowUp } from "lucide-react";
 import { ModelSelector } from "./model-selector";
 import { StructuredPromptBuilder } from "./structured-prompt-builder";
 import { SuggestionPanel, ProgressIndicator } from "./suggestion-panel";
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  url?: string;
-}
-
 export default function ChatInterface() {
   const [selectedModel, setSelectedModel] = useState("gpt-4o");
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [showPromptBuilder, setShowPromptBuilder] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
@@ -32,12 +20,10 @@ export default function ChatInterface() {
     api: "/api/chat",
     body: {
       model: selectedModel,
-      files: uploadedFiles,
       systemPrompt,
     },
   } as any) as any;
 
-  // Save recent questions to localStorage
   useEffect(() => {
     if (messages.length > 0) {
       const userMessages = messages
@@ -52,14 +38,9 @@ export default function ChatInterface() {
     }
   }, [messages]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const handlePromptGenerated = (prompt: string) => {
-    setSystemPrompt(prompt);
-  };
 
   const handleSuggestionSelect = (suggestion: string) => {
     setInput(suggestion);
@@ -68,70 +49,76 @@ export default function ChatInterface() {
   const handlePinMessage = (messageId: string, pinned: boolean) => {
     setPinnedMessages((prev) => {
       const next = new Set(prev);
-      if (pinned) {
-        next.add(messageId);
-      } else {
-        next.delete(messageId);
-      }
+      if (pinned) next.add(messageId);
+      else next.delete(messageId);
       return next;
     });
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)]">
-      <Card className="flex-1 flex flex-col overflow-hidden border-0 shadow-none bg-transparent">
-        <div className="flex-1 overflow-y-auto px-4">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-violet-100 to-violet-200 dark:from-violet-900/30 dark:to-violet-800/30 rounded-2xl flex items-center justify-center mb-6">
-                <Send className="w-8 h-8 text-violet-500" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Start a new conversation</h3>
-              <p className="text-muted-foreground max-w-md mb-8">
-                Ask about code, documents, or general knowledge. Use structured prompts for best results.
-              </p>
-              
-              {/* Suggestion Panel for empty state */}
-              <div className="w-full max-w-2xl">
-                <SuggestionPanel 
-                  onSelectSuggestion={handleSuggestionSelect}
-                  currentInput={input}
-                />
-              </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+      {/* Messages Area */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {messages.length === 0 ? (
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            height: '100%', 
+            textAlign: 'center',
+            padding: '40px 24px',
+            paddingBottom: '160px'
+          }}>
+            <h1 style={{ 
+              fontSize: '32px', 
+              fontWeight: 700, 
+              marginBottom: '16px',
+              color: 'var(--text-primary)'
+            }}>
+              무엇을 도와드릴까요?
+            </h1>
+            <p style={{ 
+              color: 'var(--text-secondary)', 
+              maxWidth: '500px', 
+              marginBottom: '48px',
+              fontSize: '16px',
+              lineHeight: 1.7,
+              fontWeight: 400
+            }}>
+              코드, 문서, 또는 필요한 모든 주제에 대해 질문해 주세요.
+            </p>
+            
+            <div style={{ width: '100%', maxWidth: '700px' }}>
+              <SuggestionPanel 
+                onSelectSuggestion={handleSuggestionSelect}
+                currentInput={input}
+              />
             </div>
-          ) : (
-            <>
-              {/* Pinned Messages */}
-              {pinnedMessages.size > 0 && (
-                <div className="sticky top-0 z-10 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 p-2 mb-4 rounded-lg">
-                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-2">
-                    📌 Pinned Responses ({pinnedMessages.size})
-                  </p>
-                  <div className="space-y-2">
-                    {messages
-                      .filter((m: any) => pinnedMessages.has(m.id))
-                      .map((m: any) => (
-                        <div key={`pinned-${m.id}`} className="text-xs bg-white dark:bg-zinc-900 p-2 rounded border">
-                          <span className="line-clamp-2">{m.content}</span>
-                        </div>
-                      ))}
-                  </div>
+          </div>
+        ) : (
+          <div style={{ paddingBottom: '160px' }}>
+            {messages.map((m: any, i: number) => (
+              <div 
+                key={m.id} 
+                style={{ 
+                  background: i % 2 === 1 ? 'var(--bg-secondary)' : 'transparent',
+                  borderBottom: '1px solid var(--border-color)'
+                }}
+              >
+                <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 24px' }}>
+                  <ChatMessage 
+                    message={m}
+                    isPinned={pinnedMessages.has(m.id)}
+                    onPin={handlePinMessage}
+                  />
                 </div>
-              )}
-              
-              {/* Messages */}
-              {messages.map((m: any) => (
-                <ChatMessage 
-                  key={m.id} 
-                  message={m}
-                  isPinned={pinnedMessages.has(m.id)}
-                  onPin={handlePinMessage}
-                />
-              ))}
-              
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="py-4">
+              </div>
+            ))}
+            
+            {isLoading && (
+              <div style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
                   <ProgressIndicator 
                     stage="generating" 
                     progress={50}
@@ -139,72 +126,178 @@ export default function ChatInterface() {
                     estimatedTime={3}
                   />
                 </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </>
-          )}
-        </div>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t bg-background/80 backdrop-blur-sm">
-          {/* Top Controls: Model Selector & System Prompt */}
-          <div className="flex items-center gap-2 mb-3 max-w-4xl mx-auto">
+      {/* Input Area */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        marginLeft: 'var(--sidebar-width)',
+        background: 'var(--bg-primary)',
+        borderTop: '1px solid var(--border-color)',
+        padding: '20px 24px',
+      }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          {/* Controls */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            marginBottom: '16px',
+            flexWrap: 'wrap'
+          }}>
             <ModelSelector 
               selectedModelId={selectedModel}
               onModelChange={setSelectedModel}
             />
             
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => setShowPromptBuilder(true)}
-              className="gap-1"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                fontSize: '14px',
+                fontWeight: 500,
+                color: 'var(--text-primary)',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                cursor: 'pointer',
+                transition: 'all 150ms ease'
+              }}
             >
-              <Settings2 className="w-4 h-4" />
-              {systemPrompt ? "Edit Prompt" : "Structured Prompt"}
-            </Button>
+              <Settings2 style={{ width: '16px', height: '16px' }} />
+              {systemPrompt ? "프롬프트 수정" : "설정"}
+            </button>
             
             {systemPrompt && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-violet-50 dark:bg-violet-900/20 rounded text-xs text-violet-600 dark:text-violet-400">
-                <Sparkles className="w-3 h-3" />
-                Custom prompt active
-              </div>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: 'var(--color-primary-light)',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '13px',
+                color: 'var(--color-primary)',
+                fontWeight: 600,
+                border: '1px solid var(--color-primary)'
+              }}>
+                ✓ 커스텀 프롬프트 적용됨
+              </span>
             )}
           </div>
 
-          {/* File Uploader */}
-          <div className="mb-3 max-w-4xl mx-auto">
-            <FileUploader onFilesChange={setUploadedFiles} />
-          </div>
-
-          {/* Main Input */}
-          <form onSubmit={handleSubmit} className="flex gap-2 max-w-4xl mx-auto">
-            <Input
-              value={input}
-              onChange={handleInputChange}
-              placeholder="Type your message..."
-              className="flex-1"
-            />
-            {isLoading ? (
-              <Button type="button" onClick={stop} variant="destructive" size="icon">
-                <StopCircle className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button type="submit" disabled={!input.trim()} size="icon">
-                <Send className="w-4 h-4" />
-              </Button>
-            )}
+          {/* Input Box */}
+          <form onSubmit={handleSubmit}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              background: 'var(--bg-primary)',
+              border: '2px solid var(--border-color-strong)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '8px 12px',
+              transition: 'border-color 150ms ease'
+            }}>
+              <textarea
+                value={input || ""}
+                onChange={handleInputChange as any}
+                placeholder="Aura에게 메시지 보내기..."
+                rows={1}
+                style={{
+                  flex: 1,
+                  resize: 'none',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '10px 12px',
+                  fontSize: '15px',
+                  fontWeight: 400,
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  maxHeight: '200px',
+                  minHeight: '48px',
+                  lineHeight: 1.6
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.parentElement!.style.borderColor = 'var(--color-primary)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.parentElement!.style.borderColor = 'var(--border-color-strong)';
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.min(target.scrollHeight, 200) + 'px';
+                }}
+              />
+              
+              <button
+                type={isLoading ? "button" : "submit"}
+                disabled={!(input || "").trim() && !isLoading}
+                onClick={isLoading ? stop : undefined}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '44px',
+                  height: '44px',
+                  background: (input || "").trim() || isLoading ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+                  color: (input || "").trim() || isLoading ? 'var(--color-white)' : 'var(--text-tertiary)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: (input || "").trim() || isLoading ? 'pointer' : 'not-allowed',
+                  transition: 'all 150ms ease'
+                }}
+              >
+                {isLoading ? (
+                  <StopCircle style={{ width: '20px', height: '20px' }} />
+                ) : (
+                  <ArrowUp style={{ width: '20px', height: '20px' }} />
+                )}
+              </button>
+            </div>
+            
+            <p style={{ 
+              textAlign: 'center', 
+              fontSize: '12px', 
+              fontWeight: 500,
+              color: 'var(--text-tertiary)', 
+              marginTop: '12px' 
+            }}>
+              Aura는 실수할 수 있습니다. 중요한 정보는 확인해 주세요.
+            </p>
           </form>
         </div>
-      </Card>
+      </div>
 
-      {/* Structured Prompt Builder Modal */}
+      {/* Prompt Builder Modal */}
       {showPromptBuilder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)'
+        }}>
           <StructuredPromptBuilder
-            onPromptGenerated={handlePromptGenerated}
+            onPromptGenerated={(prompt) => {
+              setSystemPrompt(prompt);
+              setShowPromptBuilder(false);
+            }}
             onClose={() => setShowPromptBuilder(false)}
           />
         </div>

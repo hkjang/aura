@@ -18,7 +18,6 @@ export default function DocumentsPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   const handleUpload = () => {
-    // Create a hidden file input programmatically
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.docx,.txt';
@@ -39,17 +38,16 @@ export default function DocumentsPage() {
         
         if (res.ok) {
           const { doc } = await res.json();
-          // Add new doc to list (converting DB format to UI format)
           setDocs(prev => [...prev, {
             id: doc.id,
             title: doc.title,
-            size: "New", // Real size would be in metadata
+            size: "신규",
             date: new Date().toISOString().split('T')[0]
           }]);
         }
       } catch (err) {
         console.error(err);
-        alert("Upload failed");
+        alert("업로드에 실패했습니다");
       } finally {
         setIsUploading(false);
       }
@@ -61,30 +59,34 @@ export default function DocumentsPage() {
   return (
     <div className="flex flex-col gap-6 h-full">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Database className="w-8 h-8 text-violet-600" />
-          Knowledge Base
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Database style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+          지식 베이스
         </h1>
         <Button>
-          Manage Embeddings
+          임베딩 관리
         </Button>
       </div>
 
       <div className={styles.uploadZone}>
-        <div className="p-4 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600">
-          <Upload className="w-8 h-8" />
+        <div style={{ padding: '16px', borderRadius: '50%', background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+          <Upload style={{ width: '32px', height: '32px' }} />
         </div>
         <div>
-          <h3 className="text-lg font-semibold">Upload Documents</h3>
-          <p className="text-muted-foreground mt-1">Drag and drop PDF, DOCX, or TXT files here to ingest into the RAG engine.</p>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>문서 업로드</h3>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+            PDF, DOCX, TXT 파일을 여기에 드래그하여 RAG 엔진에 추가하세요.
+          </p>
         </div>
         <Button onClick={handleUpload} isLoading={isUploading} size="lg">
-          {isUploading ? "Ingesting..." : "Select Files"}
+          {isUploading ? "처리 중..." : "파일 선택"}
         </Button>
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-4">Ingested Documents</h2>
+        <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>
+          등록된 문서
+        </h2>
         <div className={styles.grid}>
           {docs.map((doc) => (
             <div key={doc.id} className={styles.docCard}>
@@ -98,17 +100,17 @@ export default function DocumentsPage() {
               </div>
               <div className={styles.docInfo}>
                 <h4 className={styles.docTitle}>{doc.title}</h4>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   <span>{doc.size}</span>
                   <span>•</span>
                   <span>{doc.date}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 w-full" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                <div style={{ height: '6px', flex: 1, background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: 'var(--color-success)', width: '100%' }} />
                 </div>
-                <span className="text-xs font-medium text-green-600">Indexed</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)' }}>인덱싱 완료</span>
               </div>
             </div>
           ))}

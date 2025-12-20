@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquarePlus, Trash, Sparkles, Copy } from "lucide-react";
-import styles from "./page.module.css";
-// import { useSession } from "next-auth/react";
 
 interface Prompt {
   id: string;
@@ -55,65 +53,92 @@ export default function PromptsPage() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Delete this template?")) return;
+    if (!confirm("이 템플릿을 삭제하시겠습니까?")) return;
     await fetch(`/api/prompts/${id}`, { method: "DELETE" });
     fetchPrompts();
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Sparkles className="w-8 h-8 text-violet-600" />
-          Prompt Library
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Sparkles style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+          프롬프트 라이브러리
         </h1>
         <Button onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "New Template"}
+          {showForm ? "취소" : "새 템플릿"}
         </Button>
       </div>
 
       {showForm && (
-        <form onSubmit={handleCreate} className="flex flex-col gap-4 p-6 border rounded-xl bg-violet-50/50 dark:bg-violet-900/10">
+        <form onSubmit={handleCreate} style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          padding: '24px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-lg)'
+        }}>
           <Input 
-            placeholder="Title (e.g. JavaScript Debugger)" 
+            placeholder="제목 (예: JavaScript 디버거)" 
             value={newPrompt.title}
             onChange={e => setNewPrompt({...newPrompt, title: e.target.value})}
             required
           />
           <Input 
-            placeholder="Description (Optional)" 
+            placeholder="설명 (선택사항)" 
             value={newPrompt.description}
             onChange={e => setNewPrompt({...newPrompt, description: e.target.value})}
           />
           <textarea 
-            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="System Prompt Content..."
+            style={{
+              minHeight: '120px',
+              width: '100%',
+              padding: '12px 14px',
+              fontSize: '14px',
+              color: 'var(--text-primary)',
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border-color-strong)',
+              borderRadius: 'var(--radius-md)',
+              resize: 'vertical'
+            }}
+            placeholder="시스템 프롬프트 내용..."
             value={newPrompt.content}
             onChange={e => setNewPrompt({...newPrompt, content: e.target.value})}
             required
           />
-          <div className="flex justify-end">
-            <Button type="submit">Save Template</Button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button type="submit">템플릿 저장</Button>
           </div>
         </form>
       )}
 
-      <div className={styles.grid}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
         {prompts.map(prompt => (
-          <div key={prompt.id} className={styles.promptCard}>
-            <div className={styles.cardHeader}>
-              <h3 className={styles.title}>{prompt.title}</h3>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => handleDelete(prompt.id, e)}>
-                <Trash className="w-3 h-3 text-red-400" />
+          <div key={prompt.id} className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+              <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>{prompt.title}</h3>
+              <Button variant="ghost" size="icon" onClick={(e) => handleDelete(prompt.id, e)} style={{ color: 'var(--color-error)' }}>
+                <Trash style={{ width: '14px', height: '14px' }} />
               </Button>
             </div>
-            <p className={styles.description}>{prompt.description || "No description"}</p>
-            <div className={styles.contentPreview}>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+              {prompt.description || "설명 없음"}
+            </p>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--text-tertiary)',
+              background: 'var(--bg-secondary)',
+              padding: '12px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '12px'
+            }}>
               {prompt.content.slice(0, 150)}...
             </div>
-            <div className={styles.tags}>
-              <span className={styles.tag}>{prompt.user?.name || "User"}</span>
-              {prompt.isPublic && <span className={`${styles.tag} ${styles.publicTag}`}>Public</span>}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span className="badge">{prompt.user?.name || "사용자"}</span>
+              {prompt.isPublic && <span className="badge badge-primary">공개</span>}
             </div>
           </div>
         ))}

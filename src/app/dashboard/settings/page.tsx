@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Settings, Plus, Trash, Server } from "lucide-react";
-import styles from "./page.module.css";
-// import { useSession } from "next-auth/react";
 
 interface ModelConfig {
   id: string;
@@ -63,95 +61,118 @@ export default function SettingsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("정말 삭제하시겠습니까?")) return;
     await fetch(`/api/admin/models/${id}`, { method: "DELETE" });
     fetchModels();
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Settings className="w-8 h-8 text-violet-600" />
-          Settings
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Settings style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+          설정
         </h1>
       </div>
 
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>AI Model Configuration</h2>
-          <p className={styles.sectionDesc}>Manage connections to OpenAI, vLLM, or Ollama.</p>
+      <div className="card">
+        <div className="card-header">
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>AI 모델 설정</h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            OpenAI, vLLM, Ollama 연결을 관리하세요.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* List */}
-          <div className="flex flex-col gap-4">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Server className="w-4 h-4" /> Active Models
-            </h3>
-            {loading ? <div>Loading...</div> : (
-              <div className="flex flex-col gap-3">
-                {models.map(m => (
-                  <div key={m.id} className={styles.modelCard}>
-                    <div className="flex justify-between items-start">
-                      <div className="font-medium">{m.name}</div>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} className="h-6 w-6 text-red-500">
-                        <Trash className="w-3 h-3" />
-                      </Button>
+        <div className="card-content">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '32px' }}>
+            {/* List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Server style={{ width: '16px', height: '16px' }} /> 활성 모델
+              </h3>
+              {loading ? (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>로딩 중...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {models.map(m => (
+                    <div key={m.id} style={{ 
+                      padding: '16px', 
+                      background: 'var(--bg-secondary)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: 'var(--radius-lg)' 
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</div>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id)} style={{ color: 'var(--color-error)' }}>
+                          <Trash style={{ width: '14px', height: '14px' }} />
+                        </Button>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' }}>
+                        <span>제공자: <strong>{m.provider}</strong></span>
+                        <span>모델 ID: <strong>{m.modelId}</strong></span>
+                        <span style={{ gridColumn: 'span 2' }}>URL: {m.baseUrl || "기본값"}</span>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2">
-                      <span>Provider: <strong>{m.provider}</strong></span>
-                      <span>Model ID: <strong>{m.modelId}</strong></span>
-                      <span className="col-span-2 truncate">URL: {m.baseUrl || "Default"}</span>
-                    </div>
-                  </div>
-                ))}
-                {models.length === 0 && <div className="text-sm text-muted-foreground">No models configured.</div>}
-              </div>
-            )}
-          </div>
+                  ))}
+                  {models.length === 0 && (
+                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>설정된 모델이 없습니다.</div>
+                  )}
+                </div>
+              )}
+            </div>
 
-          {/* Form */}
-          <form onSubmit={handleAddModel} className="flex flex-col gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
-            <h3 className="font-semibold">Add New Model</h3>
-            <Input 
-              placeholder="Display Name (e.g. GPT-4, Llama 3)" 
-              value={newModel.name}
-              onChange={e => setNewModel({...newModel, name: e.target.value})}
-              required
-            />
-            <div className="flex gap-4">
-              <select 
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={newModel.provider}
-                onChange={e => setNewModel({...newModel, provider: e.target.value})}
-              >
-                <option value="openai">OpenAI</option>
-                <option value="ollama">Ollama</option>
-                <option value="vllm">vLLM</option>
-              </select>
+            {/* Form */}
+            <form onSubmit={handleAddModel} style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '16px', 
+              padding: '20px', 
+              background: 'var(--bg-secondary)', 
+              border: '1px solid var(--border-color)', 
+              borderRadius: 'var(--radius-lg)' 
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>새 모델 추가</h3>
               <Input 
-                placeholder="Model ID (e.g. gpt-4, llama2)" 
-                value={newModel.modelId}
-                onChange={e => setNewModel({...newModel, modelId: e.target.value})}
+                placeholder="표시 이름 (예: GPT-4, Llama 3)" 
+                value={newModel.name}
+                onChange={e => setNewModel({...newModel, name: e.target.value})}
                 required
               />
-            </div>
-            <Input 
-              placeholder="Base URL (Optional, for vLLM/Ollama)" 
-              value={newModel.baseUrl}
-              onChange={e => setNewModel({...newModel, baseUrl: e.target.value})}
-            />
-            <Input 
-              type="password"
-              placeholder="API Key (Optional)" 
-              value={newModel.apiKey}
-              onChange={e => setNewModel({...newModel, apiKey: e.target.value})}
-            />
-            <Button type="submit">
-              <Plus className="w-4 h-4 mr-2" /> Add Model
-            </Button>
-          </form>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <select 
+                  className="select-trigger"
+                  style={{ flex: 1 }}
+                  value={newModel.provider}
+                  onChange={e => setNewModel({...newModel, provider: e.target.value})}
+                >
+                  <option value="openai">OpenAI</option>
+                  <option value="ollama">Ollama</option>
+                  <option value="vllm">vLLM</option>
+                </select>
+                <Input 
+                  placeholder="모델 ID (예: gpt-4, llama2)" 
+                  value={newModel.modelId}
+                  onChange={e => setNewModel({...newModel, modelId: e.target.value})}
+                  required
+                  style={{ flex: 1 }}
+                />
+              </div>
+              <Input 
+                placeholder="Base URL (선택, vLLM/Ollama용)" 
+                value={newModel.baseUrl}
+                onChange={e => setNewModel({...newModel, baseUrl: e.target.value})}
+              />
+              <Input 
+                type="password"
+                placeholder="API 키 (선택)" 
+                value={newModel.apiKey}
+                onChange={e => setNewModel({...newModel, apiKey: e.target.value})}
+              />
+              <Button type="submit">
+                <Plus style={{ width: '16px', height: '16px', marginRight: '8px' }} /> 모델 추가
+              </Button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

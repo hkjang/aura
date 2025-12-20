@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Users, Shield, ShieldAlert } from "lucide-react";
-import styles from "./page.module.css";
 import { useSession } from "next-auth/react";
 
 interface User {
@@ -49,71 +48,71 @@ export default function UsersPage() {
         setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       }
     } catch (error) {
-      console.error("Failed to update role", error);
+      console.error("역할 업데이트 실패", error);
     }
   };
 
   if (session?.user?.role !== "ADMIN") {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center">
-        <ShieldAlert className="w-12 h-12 text-red-500 mb-4" />
-        <h2 className="text-xl font-bold">Access Denied</h2>
-        <p className="text-muted-foreground">You do not have permission to view this page.</p>
+      <div className="empty-state">
+        <ShieldAlert className="empty-state-icon" style={{ color: 'var(--color-error)' }} />
+        <h2 className="empty-state-title">접근 거부</h2>
+        <p className="empty-state-description">이 페이지를 볼 권한이 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Users className="w-8 h-8 text-violet-600" />
-          User Management
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Users style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+          사용자 관리
         </h1>
         <Button onClick={fetchUsers} isLoading={loading}>
-          Refresh List
+          새로고침
         </Button>
       </div>
 
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
+      <div className="table-container">
+        <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Joined</th>
-              <th>Actions</th>
+              <th>이름</th>
+              <th>이메일</th>
+              <th>역할</th>
+              <th>가입일</th>
+              <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
               <tr key={user.id}>
-                <td className="font-medium">{user.name || "No Name"}</td>
+                <td style={{ fontWeight: 500 }}>{user.name || "이름 없음"}</td>
                 <td>{user.email}</td>
                 <td>
-                  <span className={`${styles.roleBadge} ${user.role === "ADMIN" ? styles.admin : styles.user}`}>
-                    {user.role}
+                  <span className={`status ${user.role === "ADMIN" ? 'status-info' : 'status-success'}`}>
+                    {user.role === "ADMIN" ? "관리자" : "사용자"}
                   </span>
                 </td>
-                <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                <td className={styles.actions}>
+                <td>{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
+                <td>
                   {user.role === "USER" ? (
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => handleRoleChange(user.id, "ADMIN")}
                     >
-                      <Shield className="w-3 h-3 mr-1" /> Promote
+                      <Shield style={{ width: '12px', height: '12px', marginRight: '4px' }} /> 관리자 승격
                     </Button>
                   ) : (
                     <Button 
                       size="sm" 
                       variant="ghost"
                       onClick={() => handleRoleChange(user.id, "USER")}
-                      disabled={user.email === session.user.email} // Prevent demoting self
+                      disabled={user.email === session.user.email}
                     >
-                      Demote
+                      사용자로 강등
                     </Button>
                   )}
                 </td>

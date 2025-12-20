@@ -4,14 +4,13 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Scale, Loader2, Clock, Zap } from "lucide-react";
 
 // Mock comparison results for demo
 const mockResults = [
-  { model: "gpt-4", provider: "openai", response: "This is a detailed response from GPT-4 with comprehensive analysis and nuanced understanding of the query.", latency: 2340, score: 85 },
-  { model: "gpt-3.5-turbo", provider: "openai", response: "A quick response from GPT-3.5 that covers the main points efficiently.", latency: 890, score: 72 },
-  { model: "llama-3-70b", provider: "vllm", response: "Open-source model response with good balance of detail and speed.", latency: 1560, score: 78 },
+  { model: "gpt-4", provider: "openai", response: "GPT-4의 포괄적인 분석과 세밀한 이해가 담긴 상세한 응답입니다.", latency: 2340, score: 85 },
+  { model: "gpt-3.5-turbo", provider: "openai", response: "GPT-3.5의 핵심을 효율적으로 다룬 빠른 응답입니다.", latency: 890, score: 72 },
+  { model: "llama-3-70b", provider: "vllm", response: "상세함과 속도의 균형이 좋은 오픈소스 모델 응답입니다.", latency: 1560, score: 78 },
 ];
 
 export default function ModelComparisonPage() {
@@ -23,74 +22,79 @@ export default function ModelComparisonPage() {
     if (!query.trim()) return;
     
     setComparing(true);
-    // Simulate API call
     await new Promise(r => setTimeout(r, 2000));
     setResults(mockResults);
     setComparing(false);
   };
 
   return (
-    <div className="p-6 space-y-8">
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-          <Scale className="w-7 h-7 text-violet-600" />
-          Model Comparison
+        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Scale style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+          모델 비교
         </h1>
-        <p className="text-muted-foreground">
-          Compare responses from different AI models side by side.
+        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
+          다양한 AI 모델의 응답을 나란히 비교하세요.
         </p>
       </div>
 
       {/* Query Input */}
       <Card className="p-6">
-        <div className="flex gap-4">
+        <div style={{ display: 'flex', gap: '16px' }}>
           <Input
-            placeholder="Enter your query to compare across models..."
+            placeholder="모델 간 비교할 질문을 입력하세요..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1"
+            style={{ flex: 1 }}
           />
           <Button onClick={handleCompare} disabled={comparing || !query.trim()}>
-            {comparing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Scale className="w-4 h-4 mr-2" />}
-            {comparing ? "Comparing..." : "Compare"}
+            {comparing ? <Loader2 style={{ width: '16px', height: '16px', marginRight: '8px' }} className="animate-spin" /> : <Scale style={{ width: '16px', height: '16px', marginRight: '8px' }} />}
+            {comparing ? "비교 중..." : "비교하기"}
           </Button>
         </div>
       </Card>
 
       {/* Results */}
       {results.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Comparison Results</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>비교 결과</h2>
           
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
             {results.sort((a, b) => b.score - a.score).map((result, idx) => (
-              <Card key={result.model} className={`p-4 ${idx === 0 ? "border-2 border-violet-500" : ""}`}>
+              <Card key={result.model} className="p-4" style={{ borderWidth: idx === 0 ? '2px' : '1px', borderColor: idx === 0 ? 'var(--color-primary)' : undefined }}>
                 {idx === 0 && (
-                  <Badge className="mb-2 bg-violet-500">Best Match</Badge>
+                  <span className="status status-info" style={{ marginBottom: '12px' }}>최고 매칭</span>
                 )}
-                <div className="flex items-center justify-between mb-3">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                   <div>
-                    <h3 className="font-semibold">{result.model}</h3>
-                    <p className="text-xs text-muted-foreground">{result.provider}</p>
+                    <h3 style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{result.model}</h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{result.provider}</p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-violet-600">{result.score}</div>
-                    <p className="text-xs text-muted-foreground">Score</p>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-primary)' }}>{result.score}</div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>점수</p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock style={{ width: '12px', height: '12px' }} />
                     {result.latency}ms
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Zap className="w-3 h-3" />
-                    {result.response.length} chars
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Zap style={{ width: '12px', height: '12px' }} />
+                    {result.response.length}자
                   </span>
                 </div>
 
-                <div className="p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg text-sm">
+                <div style={{ 
+                  padding: '12px', 
+                  background: 'var(--bg-secondary)', 
+                  borderRadius: 'var(--radius-md)', 
+                  fontSize: '14px',
+                  color: 'var(--text-primary)'
+                }}>
                   {result.response}
                 </div>
               </Card>
@@ -101,9 +105,12 @@ export default function ModelComparisonPage() {
 
       {/* Empty State */}
       {results.length === 0 && !comparing && (
-        <div className="text-center py-16 text-muted-foreground">
-          <Scale className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>Enter a query above and click Compare to see results from multiple models.</p>
+        <div className="empty-state">
+          <Scale className="empty-state-icon" style={{ opacity: 0.3 }} />
+          <p className="empty-state-title">비교 결과가 없습니다</p>
+          <p className="empty-state-description">
+            위에 질문을 입력하고 비교하기 버튼을 클릭하면 여러 모델의 결과를 볼 수 있습니다.
+          </p>
         </div>
       )}
     </div>

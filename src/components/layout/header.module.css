@@ -1,13 +1,11 @@
 .header {
   height: var(--header-height);
-  border-bottom: 1px solid var(--border);
-  background: rgba(var(--background), 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 0 20px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 40;
@@ -16,13 +14,38 @@
 .left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8px;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.iconBtn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .menuBtn {

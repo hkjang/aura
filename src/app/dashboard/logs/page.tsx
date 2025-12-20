@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Activity } from "lucide-react";
-// import { useSession } from "next-auth/react";
 
 interface Log {
   id: string;
@@ -38,52 +37,52 @@ export default function LogsPage() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-        <Activity className="w-8 h-8 text-violet-600" />
-        System Logs
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Activity style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
+        시스템 로그
       </h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-             <CardTitle className="text-sm font-medium">Total Cost Est.</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.totalCost.toFixed(6)}</div>
-          </CardContent>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+        <Card className="p-6">
+          <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 비용 (추정)</p>
+          <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
+            ${stats.totalCost.toFixed(6)}
+          </div>
         </Card>
-        <Card>
-          <CardHeader>
-             <CardTitle className="text-sm font-medium">Total Tokens Processed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTokens.toLocaleString()}</div>
-          </CardContent>
+        <Card className="p-6">
+          <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 처리 토큰</p>
+          <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
+            {stats.totalTokens.toLocaleString()}
+          </div>
         </Card>
       </div>
 
-      <div className="rounded-md border bg-card">
-        <table className="w-full text-sm">
+      <div className="table-container">
+        <table className="table">
           <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="p-4 text-left font-medium">Time</th>
-              <th className="p-4 text-left font-medium">Model</th>
-              <th className="p-4 text-right font-medium">Tokens (In/Out)</th>
-              <th className="p-4 text-right font-medium">Cost</th>
+            <tr>
+              <th>시간</th>
+              <th>모델</th>
+              <th style={{ textAlign: 'right' }}>토큰 (입력/출력)</th>
+              <th style={{ textAlign: 'right' }}>비용</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
-              <tr key={log.id} className="border-b last:border-0 hover:bg-muted/50">
-                <td className="p-4">{new Date(log.createdAt).toLocaleString()}</td>
-                <td className="p-4 font-mono">{log.model}</td>
-                <td className="p-4 text-right">{log.tokensIn} / {log.tokensOut}</td>
-                <td className="p-4 text-right">${log.cost.toFixed(6)}</td>
+              <tr key={log.id}>
+                <td>{new Date(log.createdAt).toLocaleString('ko-KR')}</td>
+                <td style={{ fontFamily: 'monospace' }}>{log.model}</td>
+                <td style={{ textAlign: 'right' }}>{log.tokensIn} / {log.tokensOut}</td>
+                <td style={{ textAlign: 'right' }}>${log.cost.toFixed(6)}</td>
               </tr>
             ))}
             {logs.length === 0 && (
-               <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No logs found</td></tr>
+               <tr>
+                 <td colSpan={4} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                   로그가 없습니다
+                 </td>
+               </tr>
             )}
           </tbody>
         </table>

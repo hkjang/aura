@@ -2,84 +2,95 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  white-space: nowrap;
-  border-radius: var(--radius);
-  font-size: 0.875rem;
+  gap: 8px;
+  font-size: 14px;
   font-weight: 500;
-  transition: all var(--transition-fast);
+  border-radius: var(--radius-md);
+  border: none;
   cursor: pointer;
-  border: 1px solid transparent;
-  outline: none;
-  gap: 0.5rem;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .button:disabled {
   opacity: 0.5;
-  pointer-events: none;
+  cursor: not-allowed;
 }
 
 .button:focus-visible {
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-/* Variants */
+/* Variants - High Contrast */
 .primary {
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--color-primary);
+  color: var(--color-white);
 }
 
-.primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+.primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
 }
 
 .destructive {
-  background: rgb(220, 38, 38);
+  background: var(--color-error);
   color: white;
 }
 
-.destructive:hover {
-  background: rgb(185, 28, 28);
+.destructive:hover:not(:disabled) {
+  background: #b91c1c;
 }
 
 .outline {
-  background: transparent;
-  border-color: var(--input);
-  color: var(--foreground);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color-strong);
+  color: var(--text-primary);
 }
 
-.outline:hover {
-  background: var(--muted);
+.outline:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--text-tertiary);
 }
 
 .ghost {
   background: transparent;
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
-.ghost:hover {
-  background: var(--muted);
+.ghost:hover:not(:disabled) {
+  background: var(--bg-tertiary);
 }
 
 /* Sizes */
 .sm {
-  height: 2rem;
-  padding: 0 0.75rem;
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 
 .md {
-  height: 2.5rem;
-  padding: 0 1rem;
+  height: 40px;
+  padding: 0 18px;
 }
 
 .lg {
-  height: 3rem;
-  padding: 0 1.5rem;
-  font-size: 1rem;
+  height: 46px;
+  padding: 0 24px;
+  font-size: 15px;
 }
 
 .icon {
-  height: 2.5rem;
-  width: 2.5rem;
+  width: 40px;
+  height: 40px;
   padding: 0;
+}
+
+.icon.sm {
+  width: 34px;
+  height: 34px;
+}
+
+.icon.lg {
+  width: 46px;
+  height: 46px;
 }
