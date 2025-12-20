@@ -7,7 +7,7 @@ export const searchDocumentsTool = tool({
   parameters: z.object({
     query: z.string().describe("The search query to find relevant documents"),
   }),
-  execute: async ({ query }) => {
+  execute: async ({ query }: { query: string }) => {
     // Naive implementation: database LIKE query for MVP
     try {
       // Improved MVP Search: Split query into keywords and find matches
@@ -54,12 +54,8 @@ export const searchDocumentsTool = tool({
       if (topDocs.length === 0) return "No relevant documents found.";
 
       return topDocs.map((d: any) => `Title: ${d.title}\nRelevance: ${d.score}\nContent Snippet: ${d.content.slice(0, 500)}...`).join("\n\n");
-      
-      if (docs.length === 0) return "No relevant documents found.";
-
-      return docs.map(d => `Title: ${d.title}\nContent Snippet: ${d.content.slice(0, 500)}...`).join("\n\n");
     } catch (e) {
       return "Error searching documents.";
     }
   },
-});
+} as any);

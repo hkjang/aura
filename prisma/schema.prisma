@@ -149,3 +149,114 @@ model ToolConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// --- AI Quality & Reliability ---
+model ResponseEvaluation {
+  id            String   @id @default(cuid())
+  messageId     String   // Link to ChatMessage (no relation to avoid circular dep issues in some setups, or strictly relate)
+  // For strict relation:
+  // message       ChatMessage @relation(fields: [messageId], references: [id])
+  scoreAccuracy Float?   // 0.0 - 1.0
+  scoreRelevance Float?  // 0.0 - 1.0
+  scoreStyle    Float?   // 0.0 - 1.0
+  feedback      String?  // Text explanation
+  createdAt     DateTime @default(now())
+}
+
+model UserFeedback {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  rating    Int      // 1 (Like) or -1 (Dislike)
+  reason    String?  // Optional text
+  createdAt DateTime @default(now())
+}
+
+model Citation {
+  id        String   @id @default(cuid())
+  messageId String
+  sourceId  String?  // ID of the RAG Document
+  url       String?  // External URL
+  snippet   String?  // Quoted text
+  createdAt DateTime @default(now())
+}
+
+// --- Cost & Authorization ---
+model CostRate {
+  id        String   @id @default(cuid())
+  modelId   String   @unique // Matches ModelConfig.modelId
+  inputPrice  Float  // Per 1K tokens
+  outputPrice Float  // Per 1K tokens
+  currency    String @default("USD")
+  updatedAt   DateTime @updatedAt
+}
+
+model Budget {
+  id        String   @id @default(cuid())
+  entityType String  // USER, DEPARTMENT, ORGANIZATION
+  entityId   String  // User ID or Dept ID
+  limit      Float   // Monthly limit amount
+  spent      Float   @default(0.0) // Current accumulated spend
+  period     String  // YYYY-MM
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId, period])
+}
+
+// --- Governance ---
+model Policy {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String   // BLOCK_KEYWORD, PII_FILTER, TOPIC_BAN
+  rules       String   // JSON: e.g. ["offensive", "competitor"] or regex
+  action      String   // BLOCK, FLAG, MASK
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum DataClassification {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED
+}
+
+// --- MLOps & Deployment ---
+model ModelDeployment {
+  id          String   @id @default(cuid())
+  name        String
+  endpoint    String
+  version     String
+  strategy    String   // CANARY, BLUE_GREEN, ROLLING
+  status      String   // DEPLOYING, ACTIVE, FAILED
+  trafficSplit Int     @default(100) // Percentage 0-100
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- Agents & Plugins ---
+model AgentWorkflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  trigger     String   // MANUAL, SCHEDULE, EVENT
+  steps       String   // JSON definition of workflow steps
+  isActive    Boolean  @default(false)
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Plugin {
+  id          String   @id @default(cuid())
+  name        String
+  version     String
+  manifest    String   // JSON OpenAPI/Manifest
+  isEnabled   Boolean  @default(false)
+  requiredRole String? // ADMIN, MANAGER, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

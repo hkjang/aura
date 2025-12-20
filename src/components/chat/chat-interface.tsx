@@ -1,6 +1,6 @@
 "use client";
 
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "./chat-message";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 export default function ChatInterface() {
   const { messages, input, handleInputChange, handleSubmit, isLoading, stop } = useChat({
     api: "/api/chat",
-  });
+  } as any) as any;
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
@@ -27,7 +27,7 @@ export default function ChatInterface() {
               </p>
             </div>
           ) : (
-            messages.map((m) => <ChatMessage key={m.id} message={m} />)
+            messages.map((m: any) => <ChatMessage key={m.id} message={m} />)
           )}
         </div>
 

@@ -20,7 +20,8 @@ export class AIProviderFactory {
     const openai = createOpenAI({
       baseURL: config.baseUrl || "https://api.openai.com/v1",
       apiKey: config.apiKey || process.env.OPENAI_API_KEY || "dummy-key",
-      // compatibility: "strict", // Removed as per type definition
     });
+
+    return openai(config.modelId);
   }
 }
