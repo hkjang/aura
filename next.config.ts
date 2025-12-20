@@ -7,10 +7,11 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   
-  // Skip static prerendering for all pages
-  // This allows the build to succeed while pages are rendered at request time
+  // Use SSR mode instead of static export to avoid prerendering issues
+  output: 'standalone',
+  
+  // Skip static prerendering for dynamic pages
   experimental: {
-    // Disable static page generation for pages with DB dependencies
   }
 };
 

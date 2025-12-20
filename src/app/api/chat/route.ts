@@ -9,6 +9,8 @@ import { PolicyEngine } from "@/lib/governance/policy-engine";
 import { AuditService } from "@/lib/governance/audit";
 import { DeploymentService } from "@/lib/mlops/deployment-service"; // NEW IMPORT
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   const { messages, provider, model } = await req.json();
 
