@@ -12,36 +12,27 @@ import {
   Printer,
   Link2,
   Check,
-  Loader2
+  Loader2,
+  FileJson,
+  File
 } from "lucide-react";
-
-interface PostProcessAction {
-  id: string;
-  label: string;
-  icon: React.ElementType;
-  handler: () => Promise<void>;
-  isAsync?: boolean;
-}
 
 interface PostProcessButtonsProps {
   content: string;
+  messageId?: string;
   title?: string;
-  onShare?: (platform: string, content: string) => Promise<void>;
-  onExport?: (format: string, content: string) => Promise<void>;
-  onDocument?: (content: string) => Promise<void>;
 }
 
 export function PostProcessButtons({
   content,
-  title = "AI 응답",
-  onShare,
-  onExport,
-  onDocument
+  messageId,
+  title = "AI 응답"
 }: PostProcessButtonsProps) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [completedActions, setCompletedActions] = useState<Set<string>>(new Set());
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
   
   const executeAction = useCallback(async (actionId: string, handler: () => Promise<void>) => {
     setActiveAction(actionId);
@@ -65,16 +56,74 @@ export function PostProcessButtons({
     await navigator.clipboard.writeText(content);
   }, [content]);
   
-  // 문서화
+  // 문서화 - Document 테이블에 저장
   const handleDocument = useCallback(async () => {
-    if (onDocument) {
-      await onDocument(content);
-    } else {
-      // 기본 동작: 마크다운 포맷으로 클립보드에 복사
-      const docContent = `# ${title}\n\n${content}\n\n---\n_Generated: ${new Date().toLocaleString()}_`;
+    try {
+      const response = await fetch('/api/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${title} - ${new Date().toLocaleDateString('ko-KR')}`,
+          content: content,
+          metadata: JSON.stringify({
+            source: 'chat',
+            messageId,
+            createdAt: new Date().toISOString()
+          })
+        })
+      });
+      
+      if (!response.ok) throw new Error('Failed to save document');
+      
+      // 성공 시 알림
+      alert('문서가 지식 베이스에 저장되었습니다.');
+    } catch (error) {
+      console.error('Document save error:', error);
+      // Fallback: 클립보드에 마크다운으로 복사
+      const docContent = `# ${title}\n\n${content}\n\n---\n_Generated: ${new Date().toLocaleString('ko-KR')}_`;
       await navigator.clipboard.writeText(docContent);
+      alert('문서를 클립보드에 복사했습니다.');
     }
-  }, [content, title, onDocument]);
+  }, [content, title, messageId]);
+  
+  // 파일 다운로드 유틸리티
+  const downloadFile = (filename: string, content: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+  
+  // Markdown 내보내기
+  const handleExportMarkdown = useCallback(async () => {
+    const filename = `${title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_${Date.now()}.md`;
+    const mdContent = `# ${title}\n\n${content}\n\n---\n\n*Exported from Aura AI on ${new Date().toLocaleString('ko-KR')}*`;
+    downloadFile(filename, mdContent, 'text/markdown');
+  }, [content, title]);
+  
+  // JSON 내보내기
+  const handleExportJSON = useCallback(async () => {
+    const filename = `${title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_${Date.now()}.json`;
+    const jsonContent = JSON.stringify({
+      title,
+      content,
+      messageId,
+      exportedAt: new Date().toISOString(),
+      source: 'Aura AI'
+    }, null, 2);
+    downloadFile(filename, jsonContent, 'application/json');
+  }, [content, title, messageId]);
+  
+  // TXT 내보내기
+  const handleExportTXT = useCallback(async () => {
+    const filename = `${title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_${Date.now()}.txt`;
+    downloadFile(filename, content, 'text/plain');
+  }, [content, title]);
   
   // 인쇄
   const handlePrint = useCallback(async () => {
@@ -85,14 +134,19 @@ export function PostProcessButtons({
           <head>
             <title>${title}</title>
             <style>
-              body { font-family: system-ui, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; }
-              pre { background: #f5f5f5; padding: 1rem; overflow: auto; }
+              body { font-family: 'Malgun Gothic', system-ui, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+              h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
+              pre { background: #f5f5f5; padding: 1rem; overflow: auto; border-radius: 4px; }
               code { background: #f0f0f0; padding: 0.2em 0.4em; border-radius: 3px; }
+              .footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; color: #666; font-size: 0.9em; }
             </style>
           </head>
           <body>
             <h1>${title}</h1>
             <div>${content.replace(/\n/g, "<br>")}</div>
+            <div class="footer">
+              Aura AI · ${new Date().toLocaleString('ko-KR')}
+            </div>
           </body>
         </html>
       `);
@@ -101,12 +155,43 @@ export function PostProcessButtons({
     }
   }, [content, title]);
   
-  // 링크 생성 (placeholder)
+  // 공유 링크 생성
   const handleCreateLink = useCallback(async () => {
-    // 실제로는 서버 API 호출하여 공유 링크 생성
-    const mockLink = `${window.location.origin}/share/${Date.now().toString(36)}`;
-    await navigator.clipboard.writeText(mockLink);
-  }, []);
+    try {
+      // Save content to snippets for sharing
+      const response = await fetch('/api/snippets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          content,
+          isPublic: true
+        })
+      });
+      
+      if (response.ok) {
+        const snippet = await response.json();
+        const link = `${window.location.origin}/share/${snippet.id}`;
+        setShareLink(link);
+        await navigator.clipboard.writeText(link);
+        alert(`공유 링크가 생성되어 클립보드에 복사되었습니다!`);
+      } else {
+        throw new Error('Failed to create share link');
+      }
+    } catch (error) {
+      console.error('Share link error:', error);
+      // Fallback: just copy content
+      await navigator.clipboard.writeText(content);
+      alert('공유 링크 생성에 실패했습니다. 내용이 클립보드에 복사되었습니다.');
+    }
+  }, [content, title]);
+  
+  // 이메일로 공유
+  const handleShareEmail = useCallback(async () => {
+    const subject = encodeURIComponent(title);
+    const body = encodeURIComponent(`${content}\n\n---\nShared from Aura AI`);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  }, [content, title]);
   
   const getButtonState = (actionId: string) => {
     if (activeAction === actionId) return "loading";
@@ -132,19 +217,22 @@ export function PostProcessButtons({
   
   return (
     <div className="post-process-buttons">
-      {/* 기본 버튼들 */}
+      {/* 복사 버튼 */}
       <button
         className="action-btn"
         onClick={() => executeAction("copy", handleCopy)}
         disabled={activeAction !== null}
+        title="응답을 클립보드에 복사"
       >
         {renderButtonContent("copy", Copy, "복사")}
       </button>
       
+      {/* 문서화 버튼 */}
       <button
         className="action-btn"
         onClick={() => executeAction("document", handleDocument)}
         disabled={activeAction !== null}
+        title="지식 베이스에 문서로 저장"
       >
         {renderButtonContent("document", FileText, "문서화")}
       </button>
@@ -153,7 +241,7 @@ export function PostProcessButtons({
       <div className="dropdown">
         <button
           className="action-btn"
-          onClick={() => setShowShareMenu(!showShareMenu)}
+          onClick={() => { setShowShareMenu(!showShareMenu); setShowExportMenu(false); }}
           disabled={activeAction !== null}
         >
           <Share2 className="icon" />
@@ -167,21 +255,14 @@ export function PostProcessButtons({
               setShowShareMenu(false);
             }}>
               <Link2 size={14} />
-              <span>링크 생성</span>
+              <span>링크 복사</span>
             </button>
             <button onClick={() => {
-              onShare?.("email", content);
+              handleShareEmail();
               setShowShareMenu(false);
             }}>
               <Mail size={14} />
               <span>이메일</span>
-            </button>
-            <button onClick={() => {
-              onShare?.("slack", content);
-              setShowShareMenu(false);
-            }}>
-              <MessageSquare size={14} />
-              <span>Slack</span>
             </button>
           </div>
         )}
@@ -191,7 +272,7 @@ export function PostProcessButtons({
       <div className="dropdown">
         <button
           className="action-btn"
-          onClick={() => setShowExportMenu(!showExportMenu)}
+          onClick={() => { setShowExportMenu(!showExportMenu); setShowShareMenu(false); }}
           disabled={activeAction !== null}
         >
           <Download className="icon" />
@@ -201,19 +282,27 @@ export function PostProcessButtons({
         {showExportMenu && (
           <div className="dropdown-menu">
             <button onClick={() => {
-              onExport?.("markdown", content);
+              executeAction("md", handleExportMarkdown);
               setShowExportMenu(false);
             }}>
               <FileText size={14} />
-              <span>Markdown</span>
+              <span>Markdown (.md)</span>
             </button>
             <button onClick={() => {
-              onExport?.("json", content);
+              executeAction("json", handleExportJSON);
               setShowExportMenu(false);
             }}>
-              <FileCode size={14} />
-              <span>JSON</span>
+              <FileJson size={14} />
+              <span>JSON (.json)</span>
             </button>
+            <button onClick={() => {
+              executeAction("txt", handleExportTXT);
+              setShowExportMenu(false);
+            }}>
+              <File size={14} />
+              <span>텍스트 (.txt)</span>
+            </button>
+            <div className="dropdown-divider" />
             <button onClick={() => {
               executeAction("print", handlePrint);
               setShowExportMenu(false);
@@ -287,7 +376,7 @@ export function PostProcessButtons({
           top: 100%;
           left: 0;
           margin-top: 4px;
-          min-width: 140px;
+          min-width: 160px;
           background: var(--bg-primary, #12121a);
           border: 1px solid var(--border-color, #3e3e5a);
           border-radius: 8px;
@@ -313,6 +402,12 @@ export function PostProcessButtons({
         .dropdown-menu button:hover {
           background: var(--bg-hover, #2e2e44);
           color: var(--text-primary, #e0e0e0);
+        }
+        
+        .dropdown-divider {
+          height: 1px;
+          background: var(--border-color, #3e3e5a);
+          margin: 4px 0;
         }
       `}</style>
     </div>
