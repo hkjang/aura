@@ -286,7 +286,9 @@ async function parseWithUpstage(file: File): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error("Upstage 문서 파싱 실패");
+    const errorText = await response.text().catch(() => "");
+    console.error("Upstage API error:", response.status, errorText);
+    throw new Error(`Upstage 문서 파싱 실패 (${response.status}): ${errorText.slice(0, 100)}`);
   }
 
   const result = await response.json();

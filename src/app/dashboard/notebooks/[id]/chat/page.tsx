@@ -92,12 +92,36 @@ export default function NotebookChatPage() {
     if (notebookId) {
       fetchNotebook();
       fetchSuggestions();
+      // Load chat history from localStorage
+      const savedMessages = localStorage.getItem(`notebook-chat-${notebookId}`);
+      if (savedMessages) {
+        try {
+          const parsed = JSON.parse(savedMessages);
+          setMessages(parsed.map((m: Message) => ({ ...m, timestamp: new Date(m.timestamp) })));
+        } catch (e) {
+          console.error("Failed to load chat history:", e);
+        }
+      }
     }
   }, [notebookId]);
+
+  // Save messages to localStorage when they change
+  useEffect(() => {
+    if (notebookId && messages.length > 0) {
+      localStorage.setItem(`notebook-chat-${notebookId}`, JSON.stringify(messages));
+    }
+  }, [messages, notebookId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const clearChat = () => {
+    if (confirm("대화 내역을 모두 삭제하시겠습니까?")) {
+      setMessages([]);
+      localStorage.removeItem(`notebook-chat-${notebookId}`);
+    }
+  };
 
   const handleSubmit = async (question?: string) => {
     const q = question || input.trim();
@@ -262,17 +286,16 @@ export default function NotebookChatPage() {
         </div>
 
         <div style={{ display: "flex", gap: "8px" }}>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setMessages([]);
-              fetchSuggestions();
-            }}
-          >
-            <RefreshCw style={{ width: "14px", height: "14px", marginRight: "6px" }} />
-            새 대화
-          </Button>
+          {messages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={clearChat}
+            >
+              <RefreshCw style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+              새 대화
+            </Button>
+          )}
         </div>
       </div>
 
@@ -342,13 +365,14 @@ export default function NotebookChatPage() {
                   <div
                     style={{
                       maxWidth: "80%",
-                      padding: "12px 16px",
-                      borderRadius: "16px 16px 4px 16px",
-                      background: "var(--color-primary)",
+                      padding: "14px 18px",
+                      borderRadius: "18px 18px 4px 18px",
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
                       color: "white",
+                      boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
                     }}
                   >
-                    <p style={{ fontSize: "14px", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                    <p style={{ fontSize: "15px", lineHeight: 1.6, whiteSpace: "pre-wrap", fontWeight: 500 }}>
                       {message.content}
                     </p>
                   </div>
