@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aura Enterprise AI Portal
 
-## Getting Started
+Aura is a comprehensive Enterprise AI Portal designed to empower organizations with advanced AI capabilities while ensuring data security, governance, and operational efficiency. Ideally suited for on-premise or heavy-compliance environments.
 
-First, run the development server:
+## 🚀 Key Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Multi-Model Interface**: Chat with various AI models (OpenAI, Ollama, vLLM) in a unified interface.
+- **RAG (Retrieval-Augmented Generation)**: Upload documents to create a knowledge base for context-aware AI responses.
+- **AI Agents**: Execute complex tasks using autonomous agents.
+- **Governance & Security**: Comprehensive role-based access control, PII filtering, and topic banning.
+- **Analytics**: Detailed dashboards for quality, cost, and system usage monitoring.
+- **Offline Capable**: Designed to run in air-gapped environments.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠 Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework**: Next.js 15 (App Router)
+- **Database**: SQLite (via LibSQL) / Prisma ORM
+- **Auth**: NextAuth.js
+- **UI**: Tailwind CSS, Shadcn UI, Lucide Icons
+- **AI Integration**: Vercel AI SDK
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🏁 Quick Start
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 20+
+- npm or pnpm
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Installation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1.  Clone the repository:
 
-## Deploy on Vercel
+    ```bash
+    git clone https://github.com/your-org/aura.git
+    cd aura
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2.  Install dependencies:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+    ```bash
+    npm install
+    # or
+    pnpm install
+    ```
+
+3.  Set up environment variables:
+    Copy `.env.example` to `.env` and configure your keys.
+
+    ```bash
+    cp .env.example .env
+    ```
+
+4.  Initialize the database:
+
+    ```bash
+    npx prisma migrate dev
+    npm run seed
+    ```
+
+5.  Run the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000) with your browser.
+
+## 📦 Deployment
+
+This project is configured for standalone output, making it easy to deploy in containerized or offline environments.
+
+See [Offline Deployment Guide](./docs/deployment/offline_deployment.md) for detailed instructions.
+
+## 📖 Documentation
+
+- [User Manual](./docs/manual.md): Comprehensive guide to features and menus.
