@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+build_log.txt
 dev.db
 prisma/dev.db
 
