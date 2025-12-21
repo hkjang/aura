@@ -345,3 +345,130 @@ model SummaryHistory {
   userId         String?
   createdAt      DateTime @default(now())
 }
+
+// --- Notebook-based Knowledge System ---
+
+// 노트북: 사용자/팀 단위 지식 컨테이너
+model Notebook {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  scope       String   @default("PERSONAL") // PERSONAL, TEAM, ORGANIZATION
+  ownerId     String
+  isPublic    Boolean  @default(false)
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sources     KnowledgeSource[]
+  shares      NotebookShare[]
+  comments    NotebookComment[]
+  qnaHistory  QnAHistory[]
+}
+
+// 지식 소스: 문서, URL, 텍스트, DB 스냅샷
+model KnowledgeSource {
+  id           String   @id @default(cuid())
+  notebookId   String
+  notebook     Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  
+  type         String   // FILE, URL, TEXT, DB_SNAPSHOT
+  title        String
+  originalName String?  // 원본 파일명
+  content      String   // 원문 텍스트
+  contentHash  String?  // 중복 방지용 해시
+  url          String?  // URL 타입인 경우
+  fileSize     Int?
+  fileType     String?
+  
+  status       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
+  errorMessage String?
+  
+  uploaderId   String?
+  version      Int      @default(1)
+  metadata     String?  // JSON
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  chunks       KnowledgeChunk[]
+}
+
+// 청크: 의미 단위 분할 텍스트
+model KnowledgeChunk {
+  id           String   @id @default(cuid())
+  sourceId     String
+  source       KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  
+  content      String   // 청크 텍스트
+  chunkIndex   Int      // 순서
+  startOffset  Int?     // 원문 시작 위치
+  endOffset    Int?     // 원문 끝 위치
+  
+  embedding    String?  // JSON array (벡터)
+  embeddingModel String? // 사용된 임베딩 모델
+  
+  tags         String   @default("[]") // 자동 태깅 결과
+  keywords     String   @default("[]") // 키워드
+  
+  createdAt    DateTime @default(now())
+}
+
+// 노트북 공유
+model NotebookShare {
+  id          String   @id @default(cuid())
+  notebookId  String
+  notebook    Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  
+  userId      String   // 공유 대상 사용자
+  permission  String   @default("READ") // READ, EDIT, ADMIN
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([notebookId, userId])
+}
+
+// 노트북 코멘트
+model NotebookComment {
+  id          String   @id @default(cuid())
+  notebookId  String
+  notebook    Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  
+  sourceId    String?  // 특정 소스에 대한 코멘트
+  chunkId     String?  // 특정 청크에 대한 코멘트
+  
+  userId      String
+  content     String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Q&A 히스토리 (개인 지식화)
+model QnAHistory {
+  id          String   @id @default(cuid())
+  notebookId  String?
+  notebook    Notebook? @relation(fields: [notebookId], references: [id], onDelete: SetNull)
+  
+  userId      String
+  question    String
+  answer      String
+  citations   String   @default("[]") // JSON: [{sourceId, chunkId, snippet}]
+  
+  tags        String   @default("[]") // 자동 태깅
+  isSaved     Boolean  @default(false) // 명시적 저장
+  linkedQnaIds String  @default("[]") // 연결된 Q&A IDs
+  
+  rating      Int?     // 사용자 평가
+  createdAt   DateTime @default(now())
+}
+
+// 노트북 변경 이력
+model NotebookAudit {
+  id          String   @id @default(cuid())
+  notebookId  String
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, ADD_SOURCE, REMOVE_SOURCE
+  details     String?  // JSON
+  createdAt   DateTime @default(now())
+}
