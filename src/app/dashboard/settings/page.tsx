@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, Trash, Server } from "lucide-react";
+import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink } from "lucide-react";
 
 interface ModelConfig {
   id: string;
@@ -12,6 +12,12 @@ interface ModelConfig {
   modelId: string;
   baseUrl?: string;
   isActive: boolean;
+}
+
+interface SystemConfig {
+  key: string;
+  value: string;
+  description?: string;
 }
 
 export default function SettingsPage() {
@@ -26,6 +32,12 @@ export default function SettingsPage() {
   });
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // External service keys
+  const [upstageKey, setUpstageKey] = useState("");
+  const [upstageKeySaved, setUpstageKeySaved] = useState(false);
+  const [savingUpstage, setSavingUpstage] = useState(false);
+  const [upstageKeyExists, setUpstageKeyExists] = useState(false);
 
   const fetchModels = async () => {
     try {
@@ -41,8 +53,24 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchSystemConfigs = async () => {
+    try {
+      const res = await fetch("/api/admin/system-config");
+      if (res.ok) {
+        const data = await res.json();
+        const upstageConfig = data.configs?.find((c: SystemConfig) => c.key === 'UPSTAGE_API_KEY');
+        if (upstageConfig?.value) {
+          setUpstageKeyExists(true);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchModels();
+    fetchSystemConfigs();
   }, []);
 
   const handleEdit = (model: ModelConfig & { apiKey?: string }) => {
@@ -52,7 +80,7 @@ export default function SettingsPage() {
       provider: model.provider,
       modelId: model.modelId,
       baseUrl: model.baseUrl || "",
-      apiKey: "" // Don't show existing API key for security, user enters new one if changing
+      apiKey: ""
     });
   };
 
@@ -65,7 +93,6 @@ export default function SettingsPage() {
     e.preventDefault();
     try {
       if (editingId) {
-        // Update existing
         const res = await fetch(`/api/admin/models/${editingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -76,7 +103,6 @@ export default function SettingsPage() {
           handleCancelEdit();
         }
       } else {
-        // Create new
         const res = await fetch("/api/admin/models", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,6 +124,46 @@ export default function SettingsPage() {
     fetchModels();
   };
 
+  const handleSaveUpstageKey = async () => {
+    if (!upstageKey) return;
+    setSavingUpstage(true);
+    try {
+      const res = await fetch("/api/admin/system-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "UPSTAGE_API_KEY",
+          value: upstageKey,
+          description: "Upstage Document Parsing API Key"
+        })
+      });
+      if (res.ok) {
+        setUpstageKeySaved(true);
+        setUpstageKeyExists(true);
+        setUpstageKey("");
+        setTimeout(() => setUpstageKeySaved(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingUpstage(false);
+    }
+  };
+
+  const handleClearUpstageKey = async () => {
+    if (!confirm("Upstage API 키를 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch("/api/admin/system-config?key=UPSTAGE_API_KEY", {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setUpstageKeyExists(false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -107,6 +173,111 @@ export default function SettingsPage() {
         </h1>
       </div>
 
+      {/* External Services Section */}
+      <div className="card">
+        <div className="card-header">
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Key style={{ width: '18px', height: '18px' }} />
+            외부 서비스 API
+          </h2>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            문서 OCR 및 기타 외부 서비스 연동 설정
+          </p>
+        </div>
+
+        <div className="card-content">
+          <div style={{ 
+            padding: '20px', 
+            background: 'var(--bg-secondary)', 
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '10px', 
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '14px'
+              }}>UP</div>
+              <div>
+                <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>Upstage Document AI</h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  PDF/이미지 OCR 및 문서 파싱 서비스
+                </p>
+              </div>
+              <a 
+                href="https://console.upstage.ai" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  marginLeft: 'auto', 
+                  fontSize: '12px', 
+                  color: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                API 키 발급 <ExternalLink style={{ width: '12px', height: '12px' }} />
+              </a>
+            </div>
+
+            {upstageKeyExists && (
+              <div style={{ 
+                padding: '12px', 
+                background: 'rgba(34, 197, 94, 0.1)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Check style={{ width: '16px', height: '16px', color: 'var(--color-success)' }} />
+                <span style={{ fontSize: '13px', color: 'var(--color-success)' }}>API 키가 설정되어 있습니다</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleClearUpstageKey}
+                  style={{ marginLeft: 'auto', color: 'var(--color-error)', fontSize: '12px' }}
+                >
+                  삭제
+                </Button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Input 
+                type="password"
+                placeholder={upstageKeyExists ? "새 API 키로 변경하려면 입력" : "up_**** 형식의 API 키"} 
+                value={upstageKey}
+                onChange={e => setUpstageKey(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <Button 
+                onClick={handleSaveUpstageKey} 
+                disabled={!upstageKey || savingUpstage}
+              >
+                {savingUpstage ? (
+                  <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+                ) : upstageKeySaved ? (
+                  <Check style={{ width: '16px', height: '16px' }} />
+                ) : (
+                  '저장'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Model Section */}
       <div className="card">
         <div className="card-header">
           <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>AI 모델 설정</h2>
@@ -117,7 +288,6 @@ export default function SettingsPage() {
 
         <div className="card-content">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '32px' }}>
-            {/* List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Server style={{ width: '16px', height: '16px' }} /> 활성 모델
@@ -159,7 +329,6 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} style={{ 
               display: 'flex', 
               flexDirection: 'column', 
@@ -234,6 +403,13 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

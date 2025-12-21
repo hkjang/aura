@@ -59,8 +59,13 @@ export function DocumentSummarizer() {
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/plain",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "image/bmp",
       ];
-      if (validTypes.includes(droppedFile.type) || droppedFile.name.endsWith('.txt')) {
+      if (validTypes.includes(droppedFile.type) || droppedFile.name.endsWith('.txt') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(droppedFile.name)) {
         setFile(droppedFile);
         setResult(null);
         setError(null);
@@ -163,7 +168,7 @@ export function DocumentSummarizer() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx,.txt"
+              accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp,.gif,.bmp"
               onChange={handleFileChange}
               style={{ display: "none" }}
             />

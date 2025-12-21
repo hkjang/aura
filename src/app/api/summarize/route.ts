@@ -5,31 +5,132 @@ import { AIModelConfig, AIProviderId } from "@/lib/ai/types";
 import { prisma } from "@/lib/prisma";
 import mammoth from "mammoth";
 
+// Get Upstage API key from DB or environment
+async function getUpstageApiKey(): Promise<string | null> {
+  // Try to get from database first
+  try {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: 'UPSTAGE_API_KEY' }
+    });
+    if (config?.value) {
+      return config.value;
+    }
+  } catch (error) {
+    console.warn("Failed to get UPSTAGE_API_KEY from DB:", error);
+  }
+  
+  // Fallback to environment variable
+  return process.env.UPSTAGE_API_KEY || null;
+}
+
+// Parse PDF using Upstage Document Parsing API
+async function parseWithUpstage(file: File): Promise<string> {
+  const upstageApiKey = await getUpstageApiKey();
+  
+  if (!upstageApiKey) {
+    throw new Error("UPSTAGE_API_KEY가 설정되지 않았습니다. 설정 > 외부 서비스에서 설정해주세요.");
+  }
+
+  const formData = new FormData();
+  formData.append("document", file);
+  formData.append("ocr", "force"); // Force OCR for image-based PDFs
+  formData.append("output_formats", "text"); // Get plain text output
+
+  const response = await fetch("https://api.upstage.ai/v1/document-digitization/document-parse", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${upstageApiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Upstage API error:", errorData);
+    throw new Error(errorData.message || `Upstage API 오류: ${response.status}`);
+  }
+
+  const result = await response.json();
+  
+  // Extract text content from the response
+  // Upstage returns parsed content in various formats
+  let extractedText = "";
+  
+  if (result.content) {
+    // Direct text content
+    if (typeof result.content === "string") {
+      extractedText = result.content;
+    } else if (result.content.text) {
+      extractedText = result.content.text;
+    }
+  }
+  
+  if (result.text) {
+    extractedText = result.text;
+  }
+  
+  // Handle elements array (structured output)
+  if (result.elements && Array.isArray(result.elements)) {
+    extractedText = result.elements
+      .filter((el: any) => el.text || el.content)
+      .map((el: any) => el.text || el.content)
+      .join("\n\n");
+  }
+
+  // Handle pages array
+  if (result.pages && Array.isArray(result.pages)) {
+    extractedText = result.pages
+      .map((page: any) => {
+        if (page.text) return page.text;
+        if (page.elements) {
+          return page.elements
+            .filter((el: any) => el.text)
+            .map((el: any) => el.text)
+            .join("\n");
+        }
+        return "";
+      })
+      .join("\n\n");
+  }
+
+  if (!extractedText || extractedText.trim().length < 10) {
+    throw new Error("Upstage에서 텍스트를 추출할 수 없습니다.");
+  }
+
+  return extractedText.trim();
+}
+
 // Parse uploaded file content
 async function parseFile(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // DOCX files
+  // DOCX files - use mammoth
   if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.name.endsWith(".docx")) {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   }
 
-  // PDF files - currently not fully supported in edge runtime
-  // For PDF support, recommend using a separate service or uploading text/docx
+  // PDF files - use Upstage Document Parsing
   if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-    // Try to extract text from PDF using simple heuristics
-    // This is a basic fallback for simple PDFs
+    // Check if Upstage API key is available
+    const upstageKey = await getUpstageApiKey();
+    if (upstageKey) {
+      try {
+        return await parseWithUpstage(file);
+      } catch (error) {
+        console.error("Upstage parsing failed, falling back to basic extraction:", error);
+        // Fall through to basic extraction
+      }
+    }
+
+    // Basic text extraction fallback for text-based PDFs
     try {
       const text = buffer.toString("latin1");
-      
-      // Try to find text between parentheses (PDF text objects)
       const textMatches: string[] = [];
       const regex = /\(([^)]+)\)/g;
       let match;
       while ((match = regex.exec(text)) !== null) {
         const extracted = match[1];
-        // Filter out binary/control characters, keep readable text
         if (/^[\x20-\x7E가-힣ㄱ-ㅎㅏ-ㅣ\s.,!?:;'"()-]+$/.test(extracted) && extracted.length > 2) {
           textMatches.push(extracted);
         }
@@ -41,8 +142,19 @@ async function parseFile(file: File): Promise<string> {
       
       throw new Error("simple-extraction-failed");
     } catch {
-      return Promise.reject(new Error("PDF 파일에서 텍스트를 추출할 수 없습니다. TXT 또는 DOCX 파일을 사용해주세요."));
+      const upstageHint = process.env.UPSTAGE_API_KEY 
+        ? "" 
+        : " UPSTAGE_API_KEY를 설정하면 이미지 PDF도 지원됩니다.";
+      return Promise.reject(new Error(`PDF 파일에서 텍스트를 추출할 수 없습니다.${upstageHint}`));
     }
+  }
+
+  // Image files - use Upstage for OCR
+  if (file.type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|tiff?)$/i.test(file.name)) {
+    if (process.env.UPSTAGE_API_KEY) {
+      return await parseWithUpstage(file);
+    }
+    throw new Error("이미지 OCR을 위해 UPSTAGE_API_KEY 설정이 필요합니다.");
   }
 
   // Plain text

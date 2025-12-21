@@ -320,3 +320,11 @@ model Snippet {
   updatedAt   DateTime @updatedAt
 }
 
+// --- System Configuration ---
+model SystemConfig {
+  key         String   @id @unique
+  value       String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
