@@ -327,6 +327,38 @@ export default function NotebookDetailPage() {
     }
   };
 
+  const handleReprocessAll = async () => {
+    const pendingSources = notebook?.sources?.filter(
+      (s) => s.status === "PENDING" || s.status === "ERROR"
+    ) || [];
+    
+    if (pendingSources.length === 0) {
+      alert("재처리할 소스가 없습니다.");
+      return;
+    }
+
+    if (!confirm(`${pendingSources.length}개의 소스를 재처리하시겠습니까?`)) return;
+
+    setUploadProgress(`${pendingSources.length}개 소스 재처리 중...`);
+    setUploading(true);
+
+    for (const source of pendingSources) {
+      try {
+        await fetch(`/api/notebooks/${notebookId}/sources/${source.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reprocess" }),
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setUploading(false);
+    setUploadProgress(null);
+    fetchNotebook();
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "COMPLETED":
@@ -502,9 +534,22 @@ export default function NotebookDetailPage() {
       {/* Sources List */}
       <div style={{ display: "grid", gridTemplateColumns: selectedSource ? "1fr 1fr" : "1fr", gap: "24px" }}>
         <div>
-          <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "12px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>
             지식 소스 ({notebook.sources?.length || 0})
           </h2>
+          {notebook.sources?.some((s) => s.status === "PENDING" || s.status === "ERROR") && canEdit && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleReprocessAll}
+              disabled={uploading}
+            >
+              <RefreshCw style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+              미처리 재시도
+            </Button>
+          )}
+        </div>
 
           {notebook.sources?.length === 0 ? (
             <Card className="p-6" style={{ textAlign: "center" }}>
