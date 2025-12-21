@@ -411,23 +411,34 @@ export function CodeGenerator({ onPromptChange, externalPrompt }: CodeGeneratorP
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Code Block with Syntax Highlighting */}
-            <pre style={{
-              background: "#1e1e1e",
-              color: "#d4d4d4",
-              padding: "20px",
-              borderRadius: "10px",
-              overflow: "auto",
-              fontSize: "13px",
-              lineHeight: 1.6,
-              maxHeight: "500px",
-              fontFamily: "'Fira Code', 'Monaco', 'Consolas', monospace",
+            <div style={{ 
+              width: "100%", 
+              maxWidth: "100%", 
+              overflow: "hidden" 
             }}>
-              <code 
-                dangerouslySetInnerHTML={{ 
-                  __html: highlightCode(result.code, language) 
-                }} 
-              />
-            </pre>
+              <pre style={{
+                background: "#1e1e1e",
+                color: "#d4d4d4",
+                padding: "20px",
+                borderRadius: "10px",
+                overflowX: "auto",
+                overflowY: "auto",
+                fontSize: "13px",
+                lineHeight: 1.6,
+                maxHeight: "500px",
+                fontFamily: "'Fira Code', 'Monaco', 'Consolas', monospace",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                margin: 0,
+              }}>
+                <code 
+                  dangerouslySetInnerHTML={{ 
+                    __html: highlightCode(result.code, language) 
+                  }} 
+                  style={{ display: "block" }}
+                />
+              </pre>
+            </div>
 
             {/* Explanation Toggle */}
             {result.explanation && (
