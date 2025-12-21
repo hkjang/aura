@@ -4,11 +4,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
-import { Send, StopCircle, Settings2, ArrowUp, History, Plus } from "lucide-react";
+import { Send, StopCircle, Settings2, ArrowUp, History, Plus, Sparkles, AlertTriangle } from "lucide-react";
 import { ModelSelector } from "./model-selector";
 import { StructuredPromptBuilder } from "./structured-prompt-builder";
 import { SuggestionPanel, ProgressIndicator } from "./suggestion-panel";
 import { ChatHistory } from "./chat-history";
+// UIUX Enhancement Imports
+import { SmartAutocomplete } from "./smart-autocomplete";
+import { PolicyValidator } from "./policy-validator";
+import { FollowUpSuggestions } from "./follow-up-suggestions";
+import { PostProcessButtons } from "./post-process-buttons";
+import { ETAIndicator } from "@/components/ui/eta-indicator";
+import { UsageWarningSystem } from "./usage-warning-system";
 
 export default function ChatInterface() {
   const router = useRouter();
@@ -477,13 +484,32 @@ export default function ChatInterface() {
             {isLoading && (
               <div style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                 <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px' }}>
-                  <ProgressIndicator 
-                    stage="generating" 
-                    progress={50}
-                    tokens={150}
-                    estimatedTime={3}
+                  <ETAIndicator 
+                    modelId={selectedModel}
+                    estimatedTokens={Math.max(100, inputValue.length * 2)}
+                    isLoading={isLoading}
                   />
                 </div>
+              </div>
+            )}
+            
+            {/* Follow-up Suggestions after last message */}
+            {!isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+              <div style={{ maxWidth: '800px', margin: '0 auto', padding: '16px 24px' }}>
+                <FollowUpSuggestions 
+                  messages={messages.map(m => ({ id: m.id, role: m.role, content: m.content }))}
+                  onSelectSuggestion={(suggestion) => setInputValue(suggestion)}
+                />
+              </div>
+            )}
+            
+            {/* Post-process buttons for last assistant message */}
+            {!isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+              <div style={{ maxWidth: '800px', margin: '0 auto', padding: '0 24px 16px' }}>
+                <PostProcessButtons 
+                  content={messages[messages.length - 1].content}
+                  title="AI 응답"
+                />
               </div>
             )}
             
@@ -561,6 +587,26 @@ export default function ChatInterface() {
               </span>
             )}
           </div>
+
+          {/* Usage Warning System */}
+          {inputValue.length > 20 && (
+            <div style={{ marginBottom: '12px' }}>
+              <UsageWarningSystem 
+                prompt={inputValue}
+                selectedModel={selectedModel}
+              />
+            </div>
+          )}
+
+          {/* Smart Autocomplete */}
+          {inputValue.length > 5 && (
+            <div style={{ marginBottom: '12px' }}>
+              <SmartAutocomplete 
+                inputValue={inputValue}
+                onSuggestionSelect={(suggestion) => setInputValue(suggestion)}
+              />
+            </div>
+          )}
 
           {/* Input Box */}
           <form onSubmit={handleSendMessage}>
