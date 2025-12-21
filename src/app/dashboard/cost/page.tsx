@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 
 // Mock data for MVP visualization
 const usageData = [
-  { model: "GPT-4", tokens: 15400, cost: 0.46, requests: 120 },
-  { model: "GPT-3.5-Turbo", tokens: 45000, cost: 0.09, requests: 340 },
-  { model: "Llama 3 70B", tokens: 2000, cost: 0.002, requests: 15 },
+  { model: "GPT-4", tokens: 15400, cost: 644, requests: 120 },
+  { model: "GPT-3.5-Turbo", tokens: 45000, cost: 126, requests: 340 },
+  { model: "Llama 3 70B", tokens: 2000, cost: 3, requests: 15 },
 ];
 
 export default function CostDashboardPage() {
@@ -28,7 +28,7 @@ export default function CostDashboardPage() {
           <div>
             <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 지출 (월)</p>
             <h2 style={{ fontSize: '32px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
-              ${totalCost.toFixed(2)}
+            ₩{totalCost.toLocaleString()}
             </h2>
           </div>
           <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
@@ -47,7 +47,7 @@ export default function CostDashboardPage() {
         </Card>
 
         {/* Budget Management Component */}
-        <BudgetCard currentSpend={totalCost} limit={10.00} />
+        <BudgetCard currentSpend={totalCost} limit={14000} />
       </div>
 
       <div style={{ display: 'grid', gap: '24px', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
@@ -69,7 +69,7 @@ export default function CostDashboardPage() {
                             <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.tokens.toLocaleString()} 토큰</p>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                             <p style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>${item.cost.toFixed(4)}</p>
+                             <p style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-primary)' }}>₩{item.cost.toLocaleString()}</p>
                              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.requests}건</p>
                         </div>
                     </div>
@@ -94,19 +94,19 @@ export default function CostDashboardPage() {
                             <td style={{ fontWeight: 500 }}>GPT-4</td>
                             <td>채팅</td>
                             <td>1,204</td>
-                            <td style={{ color: 'var(--color-success)' }}>$0.036</td>
+                            <td style={{ color: 'var(--color-success)' }}>₩50</td>
                         </tr>
                          <tr>
                             <td style={{ fontWeight: 500 }}>GPT-3.5-Turbo</td>
                             <td>채팅</td>
                             <td>450</td>
-                            <td style={{ color: 'var(--color-success)' }}>$0.001</td>
+                            <td style={{ color: 'var(--color-success)' }}>₩1</td>
                         </tr>
                         <tr>
                             <td style={{ fontWeight: 500 }}>Llama 3</td>
                             <td>채팅</td>
                             <td>800</td>
-                            <td style={{ color: 'var(--color-success)' }}>$0.000</td>
+                            <td style={{ color: 'var(--color-success)' }}>₩0</td>
                         </tr>
                     </tbody>
                 </table>

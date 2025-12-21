@@ -214,7 +214,7 @@ export function AutoModelSelector({
                     {rec.estimatedCost !== undefined && (
                       <span>
                         <Activity size={12} />
-                        ~${rec.estimatedCost.toFixed(4)}
+                        ~₩{Math.round(rec.estimatedCost * 1400).toLocaleString()}
                       </span>
                     )}
                   </div>

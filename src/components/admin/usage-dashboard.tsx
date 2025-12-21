@@ -53,7 +53,7 @@ const metrics: MetricCard[] = [
   },
   { 
     title: "Total Cost", 
-    value: "$3,421", 
+    value: "₩4,789,400", 
     change: -5.3, 
     changeLabel: "vs last week",
     icon: DollarSign,
@@ -70,13 +70,13 @@ const metrics: MetricCard[] = [
 ];
 
 const usageData: UsagePoint[] = [
-  { date: "Mon", requests: 3200, tokens: 125000, cost: 420 },
-  { date: "Tue", requests: 4100, tokens: 156000, cost: 512 },
-  { date: "Wed", requests: 3800, tokens: 142000, cost: 478 },
-  { date: "Thu", requests: 4500, tokens: 168000, cost: 545 },
-  { date: "Fri", requests: 4200, tokens: 158000, cost: 520 },
-  { date: "Sat", requests: 2100, tokens: 82000, cost: 275 },
-  { date: "Sun", requests: 2620, tokens: 98000, cost: 321 },
+  { date: "Mon", requests: 3200, tokens: 125000, cost: 588000 },
+  { date: "Tue", requests: 4100, tokens: 156000, cost: 716800 },
+  { date: "Wed", requests: 3800, tokens: 142000, cost: 669200 },
+  { date: "Thu", requests: 4500, tokens: 168000, cost: 763000 },
+  { date: "Fri", requests: 4200, tokens: 158000, cost: 728000 },
+  { date: "Sat", requests: 2100, tokens: 82000, cost: 385000 },
+  { date: "Sun", requests: 2620, tokens: 98000, cost: 449400 },
 ];
 
 const modelUsage = [
@@ -222,7 +222,7 @@ export function UsageDashboard() {
                     <td className="py-2">{point.date}</td>
                     <td className="text-right py-2">{point.requests.toLocaleString()}</td>
                     <td className="text-right py-2">{point.tokens.toLocaleString()}</td>
-                    <td className="text-right py-2">${point.cost}</td>
+                    <td className="text-right py-2">₩{point.cost.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

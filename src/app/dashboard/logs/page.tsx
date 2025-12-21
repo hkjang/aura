@@ -47,7 +47,7 @@ export default function LogsPage() {
         <Card className="p-6">
           <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>총 비용 (추정)</p>
           <div style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px' }}>
-            ${stats.totalCost.toFixed(6)}
+            ₩{Math.round(stats.totalCost * 1400).toLocaleString()}
           </div>
         </Card>
         <Card className="p-6">
@@ -74,7 +74,7 @@ export default function LogsPage() {
                 <td>{new Date(log.createdAt).toLocaleString('ko-KR')}</td>
                 <td style={{ fontFamily: 'monospace' }}>{log.model}</td>
                 <td style={{ textAlign: 'right' }}>{log.tokensIn} / {log.tokensOut}</td>
-                <td style={{ textAlign: 'right' }}>${log.cost.toFixed(6)}</td>
+                <td style={{ textAlign: 'right' }}>₩{Math.round(log.cost * 1400).toLocaleString()}</td>
               </tr>
             ))}
             {logs.length === 0 && (

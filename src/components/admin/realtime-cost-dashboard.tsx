@@ -77,7 +77,11 @@ export function RealtimeCostDashboard({
   }, [onRefresh]);
   
   const formatCost = (cost: number) => {
-    return `$${cost.toFixed(4)}`;
+    const krwCost = cost * 1400; // USD to KRW
+    if (krwCost >= 1000) {
+      return `₩${Math.round(krwCost).toLocaleString()}`;
+    }
+    return `₩${krwCost.toFixed(0)}`;
   };
   
   const formatTokens = (tokens: number) => {
