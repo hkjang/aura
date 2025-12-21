@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart } from "lucide-react";
+import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart, FileText } from "lucide-react";
 
 // ============ Interfaces ============
 interface ModelConfig {
@@ -33,6 +33,7 @@ interface ScoringWeights {
 const TABS = [
   { id: 'models', label: 'AI 모델', icon: Cpu, description: 'AI 모델 연결 설정' },
   { id: 'external', label: '외부 서비스', icon: Link2, description: 'API 키 및 외부 연동' },
+  { id: 'summarize', label: '문서 요약', icon: FileText, description: '요약 모델 및 프롬프트' },
   { id: 'scoring', label: '비교 설정', icon: BarChart, description: '모델 비교 점수 가중치' },
 ] as const;
 
@@ -409,6 +410,200 @@ function ExternalServicesTab() {
   );
 }
 
+// ============ Summarize Settings Tab ============
+const DEFAULT_SUMMARIZE_PROMPT = `당신은 전문 문서 요약 AI입니다. 한국어로 응답하세요.
+사용자가 제공한 문서를 분석하고 다음 JSON 형식으로만 응답하세요:
+
+{
+  "summary": "문서 전체 요약",
+  "keyPoints": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
+  "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"]
+}
+
+요약은 {LENGTH_INSTRUCTION} 하세요.
+핵심 포인트는 3-5개로 제한하세요.
+키워드는 문서의 주요 주제를 나타내는 5개 이내의 단어로 제한하세요.`;
+
+function SummarizeSettingsTab() {
+  const [models, setModels] = useState<ModelConfig[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [customPrompt, setCustomPrompt] = useState<string>(DEFAULT_SUMMARIZE_PROMPT);
+  const [savingModel, setSavingModel] = useState(false);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [modelSaved, setModelSaved] = useState(false);
+  const [promptSaved, setPromptSaved] = useState(false);
+
+  useEffect(() => {
+    // Fetch available models
+    fetch("/api/admin/models")
+      .then(res => res.json())
+      .then(data => setModels(data.models || []))
+      .catch(console.error);
+
+    // Fetch current summarize settings
+    fetch("/api/admin/system-config")
+      .then(res => res.json())
+      .then(data => {
+        const modelConfig = data.configs?.find((c: SystemConfig) => c.key === 'SUMMARIZE_MODEL_ID');
+        if (modelConfig?.value) setSelectedModel(modelConfig.value);
+
+        const promptConfig = data.configs?.find((c: SystemConfig) => c.key === 'SUMMARIZE_PROMPT');
+        if (promptConfig?.value && !promptConfig.value.includes('***')) {
+          setCustomPrompt(promptConfig.value);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleSaveModel = async () => {
+    setSavingModel(true);
+    try {
+      const res = await fetch("/api/admin/system-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "SUMMARIZE_MODEL_ID",
+          value: selectedModel,
+          description: "문서 요약에 사용할 AI 모델 ID"
+        })
+      });
+      if (res.ok) {
+        setModelSaved(true);
+        setTimeout(() => setModelSaved(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingModel(false);
+    }
+  };
+
+  const handleSavePrompt = async () => {
+    setSavingPrompt(true);
+    try {
+      const res = await fetch("/api/admin/system-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "SUMMARIZE_PROMPT",
+          value: customPrompt,
+          description: "문서 요약 시스템 프롬프트"
+        })
+      });
+      if (res.ok) {
+        setPromptSaved(true);
+        setTimeout(() => setPromptSaved(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Model Selection */}
+      <div style={{ 
+        padding: '20px', 
+        background: 'var(--bg-secondary)', 
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)'
+      }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Cpu style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
+          요약 AI 모델
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          문서 요약에 사용할 AI 모델을 선택하세요. 비워두면 기본 활성 모델이 사용됩니다.
+        </p>
+        
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <select
+            className="select-trigger"
+            style={{ flex: 1 }}
+            value={selectedModel}
+            onChange={e => setSelectedModel(e.target.value)}
+          >
+            <option value="">기본 (활성 모델 사용)</option>
+            {models.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.provider} - {m.modelId})
+              </option>
+            ))}
+          </select>
+          <Button onClick={handleSaveModel} disabled={savingModel}>
+            {savingModel ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+              : modelSaved ? <Check style={{ width: '16px', height: '16px' }} /> : '저장'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Custom Prompt */}
+      <div style={{ 
+        padding: '20px', 
+        background: 'var(--bg-secondary)', 
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)'
+      }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FileText style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
+          시스템 프롬프트
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+          요약 생성 시 AI에게 전달되는 시스템 프롬프트입니다. <code style={{ background: 'var(--bg-primary)', padding: '2px 4px', borderRadius: '4px' }}>{'{LENGTH_INSTRUCTION}'}</code>은 요약 길이에 따라 자동 치환됩니다.
+        </p>
+        
+        <textarea
+          value={customPrompt}
+          onChange={e => setCustomPrompt(e.target.value)}
+          style={{
+            width: '100%',
+            minHeight: '200px',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            fontSize: '13px',
+            fontFamily: 'monospace',
+            lineHeight: 1.6,
+            resize: 'vertical'
+          }}
+        />
+        
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+          <Button variant="outline" size="sm" onClick={() => setCustomPrompt(DEFAULT_SUMMARIZE_PROMPT)}>
+            기본값 복원
+          </Button>
+          <div style={{ flex: 1 }} />
+          <Button onClick={handleSavePrompt} disabled={savingPrompt}>
+            {savingPrompt ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+              : promptSaved ? <Check style={{ width: '16px', height: '16px' }} /> : '프롬프트 저장'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ 
+        padding: '16px', 
+        background: 'rgba(59, 130, 246, 0.08)',
+        borderRadius: '12px',
+        border: '1px solid rgba(59, 130, 246, 0.2)',
+        fontSize: '13px',
+        color: 'var(--text-secondary)'
+      }}>
+        <strong style={{ color: 'var(--text-primary)' }}>💡 팁</strong>
+        <ul style={{ marginTop: '8px', paddingLeft: '16px', lineHeight: 1.7 }}>
+          <li>프롬프트에서 JSON 출력 형식을 유지하면 UI에서 결과를 올바르게 파싱합니다.</li>
+          <li>요약 길이 옵션: <code>{'short'}</code>=1-2문장, <code>{'medium'}</code>=3-5문장, <code>{'detailed'}</code>=상세</li>
+          <li>PDF/이미지 파싱은 외부 서비스 탭에서 Upstage 설정이 필요합니다.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ============ Scoring Settings Tab ============
 const DEFAULT_WEIGHTS: ScoringWeights = {
   lengthMax: 25, speedMax: 25, relevanceMax: 25, formatMax: 15, baseScore: 10
@@ -563,6 +758,7 @@ export default function SettingsPage() {
         <div className="card-content">
           {activeTab === 'models' && <ModelSettingsTab />}
           {activeTab === 'external' && <ExternalServicesTab />}
+          {activeTab === 'summarize' && <SummarizeSettingsTab />}
           {activeTab === 'scoring' && <ScoringSettingsTab />}
         </div>
       </div>

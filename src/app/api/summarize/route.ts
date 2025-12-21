@@ -204,12 +204,31 @@ export async function POST(request: NextRequest) {
     let modelId = "gpt-4o-mini";
     let baseUrl: string | undefined = process.env.OPENAI_BASE_URL;
     let apiKey: string | undefined = process.env.OPENAI_API_KEY;
+    let modelConfig = null;
 
-    // Try to get active model from DB
-    const modelConfig = await prisma.modelConfig.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: "desc" },
-    });
+    // Check if there's a specific summarize model configured
+    try {
+      const summarizeModelConfig = await prisma.systemConfig.findUnique({
+        where: { key: 'SUMMARIZE_MODEL_ID' }
+      });
+      
+      if (summarizeModelConfig?.value) {
+        // Get the specific model by ID
+        modelConfig = await prisma.modelConfig.findUnique({
+          where: { id: summarizeModelConfig.value }
+        });
+      }
+    } catch {
+      // Fall through to default model selection
+    }
+
+    // If no specific model, get the default active model
+    if (!modelConfig) {
+      modelConfig = await prisma.modelConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     if (modelConfig) {
       providerId = (modelConfig.provider as AIProviderId) || providerId;
@@ -237,10 +256,8 @@ export async function POST(request: NextRequest) {
 
     const languageModel = AIProviderFactory.createModel(config);
 
-    // Generate summary using AI
-    const { text: summaryResponse } = await generateText({
-      model: languageModel,
-      system: `당신은 전문 문서 요약 AI입니다. 한국어로 응답하세요.
+    // Get custom prompt from settings or use default
+    let systemPrompt = `당신은 전문 문서 요약 AI입니다. 한국어로 응답하세요.
 사용자가 제공한 문서를 분석하고 다음 JSON 형식으로만 응답하세요:
 
 {
@@ -249,9 +266,28 @@ export async function POST(request: NextRequest) {
   "keywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"]
 }
 
-요약 길이: ${getLengthInstruction(length)}
-핵심 포인트: 3-5개
-키워드: 5-7개`,
+요약은 {LENGTH_INSTRUCTION} 하세요.
+핵심 포인트는 3-5개로 제한하세요.
+키워드는 문서의 주요 주제를 나타내는 5개 이내의 단어로 제한하세요.`;
+
+    try {
+      const promptConfig = await prisma.systemConfig.findUnique({
+        where: { key: 'SUMMARIZE_PROMPT' }
+      });
+      if (promptConfig?.value) {
+        systemPrompt = promptConfig.value;
+      }
+    } catch {
+      // Use default prompt
+    }
+
+    // Replace length instruction placeholder
+    systemPrompt = systemPrompt.replace('{LENGTH_INSTRUCTION}', getLengthInstruction(length));
+
+    // Generate summary using AI
+    const { text: summaryResponse } = await generateText({
+      model: languageModel,
+      system: systemPrompt,
       prompt: `다음 문서를 요약해주세요:\n\n${content.substring(0, 15000)}`,
     });
 
@@ -272,12 +308,26 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // Determine parsing method used
+    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+    const isImage = file.type.startsWith("image/");
+    let parsingMethod = "텍스트 추출";
+    if (isPdf || isImage) {
+      const upstageKey = await getUpstageApiKey();
+      parsingMethod = upstageKey ? "Upstage OCR" : "기본 PDF 파서";
+    } else if (file.name.endsWith(".docx")) {
+      parsingMethod = "DOCX 파서";
+    }
+
     return NextResponse.json({
       summary: parsed.summary,
       keyPoints: parsed.keyPoints || [],
       keywords: parsed.keywords || [],
       wordCount,
+      originalLength: content.length,
       estimatedReadTime,
+      modelUsed: modelConfig ? `${modelConfig.name} (${modelConfig.provider})` : `${modelId} (${providerId})`,
+      parsingMethod
     });
   } catch (error) {
     console.error("Summarization error:", error);
