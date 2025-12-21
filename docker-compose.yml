@@ -1,0 +1,16 @@
+version: '3.9'
+
+services:
+  aura:
+    container_name: aura-app
+    image: aura:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    restart: unless-stopped
+    # If you need to access host services or other specific networking
+    # network_mode: "host" 

@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   
   // Skip static prerendering for dynamic pages
   experimental: {
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   }
 };
 

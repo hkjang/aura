@@ -154,8 +154,9 @@ export async function POST(req: Request) {
         console.log("DEBUG usage object:", usage);
         
         // Try different property names used across SDK versions
-        const promptTokens = usage.promptTokens ?? usage.prompt_tokens ?? usage.inputTokens ?? 0;
-        const completionTokens = usage.completionTokens ?? usage.completion_tokens ?? usage.outputTokens ?? 0;
+        const usageAny = usage as any;
+        const promptTokens = usageAny.promptTokens ?? usageAny.prompt_tokens ?? usageAny.inputTokens ?? 0;
+        const completionTokens = usageAny.completionTokens ?? usageAny.completion_tokens ?? usageAny.outputTokens ?? 0;
         
         console.log(`DEBUG Tokens: input=${promptTokens}, output=${completionTokens}`);
         
