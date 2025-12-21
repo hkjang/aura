@@ -33,6 +33,10 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
   const isUser = message.role === "user";
   const [feedback, setFeedback] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [pendingRating, setPendingRating] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
+  const [feedbackSaved, setFeedbackSaved] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -42,11 +46,39 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
 
   const handleFeedback = async (rating: number) => {
     setFeedback(rating);
+    setPendingRating(rating);
+    setShowReasonInput(true);
+  };
+
+  const submitFeedback = async () => {
     try {
       await fetch('/api/quality/feedback', {
         method: 'POST',
-        body: JSON.stringify({ messageId: message.id, rating })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          messageId: message.id, 
+          rating: pendingRating,
+          reason: reason || undefined
+        })
       });
+      setFeedbackSaved(true);
+      setShowReasonInput(false);
+      setTimeout(() => setFeedbackSaved(false), 3000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const skipReason = async () => {
+    try {
+      await fetch('/api/quality/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: message.id, rating: pendingRating })
+      });
+      setFeedbackSaved(true);
+      setShowReasonInput(false);
+      setTimeout(() => setFeedbackSaved(false), 3000);
     } catch (e) {
       console.error(e);
     }
@@ -241,6 +273,7 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
             </button>
             <button
               onClick={() => handleFeedback(-1)}
+              disabled={feedbackSaved}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -251,12 +284,112 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
                 border: 'none',
                 borderRadius: '6px',
                 color: feedback === -1 ? 'rgb(239, 68, 68)' : 'var(--text-tertiary)',
-                cursor: 'pointer',
-                transition: 'all 150ms ease'
+                cursor: feedbackSaved ? 'default' : 'pointer',
+                transition: 'all 150ms ease',
+                opacity: feedbackSaved ? 0.5 : 1
               }}
             >
               <ThumbsDown style={{ width: '14px', height: '14px' }} />
             </button>
+
+            {/* Feedback Saved Indicator */}
+            {feedbackSaved && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: 'var(--color-success)', 
+                marginLeft: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                ✓ 피드백 저장됨
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Feedback Reason Input Popup */}
+        {showReasonInput && (
+          <div style={{
+            marginTop: '12px',
+            padding: '16px',
+            background: 'var(--bg-secondary)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ 
+              fontSize: '13px', 
+              fontWeight: 600, 
+              color: 'var(--text-primary)', 
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              {pendingRating === 1 ? (
+                <>
+                  <ThumbsUp style={{ width: '14px', height: '14px', color: 'var(--color-success)' }} />
+                  좋아요 피드백
+                </>
+              ) : (
+                <>
+                  <ThumbsDown style={{ width: '14px', height: '14px', color: 'var(--color-error)' }} />
+                  싫어요 피드백
+                </>
+              )}
+            </div>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={pendingRating === 1 
+                ? "무엇이 도움이 되었나요? (선택사항)" 
+                : "무엇이 문제였나요? (선택사항)"
+              }
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                resize: 'none',
+                minHeight: '60px'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <button
+                onClick={submitFeedback}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  background: 'var(--color-primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                제출
+              </button>
+              <button
+                onClick={skipReason}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  background: 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                건너뛰기
+              </button>
+            </div>
           </div>
         )}
       </div>
