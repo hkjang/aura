@@ -25,6 +25,14 @@ interface AuditLog {
   createdAt: string;
 }
 
+interface GovernanceStats {
+  activePolicies: number;
+  totalPolicies: number;
+  blocked: { today: number; week: number };
+  flagged: { today: number; week: number };
+  usage: { today: number; week: number };
+}
+
 const POLICY_TYPES = [
   { value: "BLOCK_KEYWORD", label: "키워드 차단" },
   { value: "PII_FILTER", label: "개인정보 필터" },
@@ -41,6 +49,7 @@ const POLICY_ACTIONS = [
 export default function GovernanceDashboardPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [stats, setStats] = useState<GovernanceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null);
@@ -60,9 +69,10 @@ export default function GovernanceDashboardPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [policiesRes, auditRes] = await Promise.all([
+      const [policiesRes, auditRes, statsRes] = await Promise.all([
         fetch("/api/admin/policies"),
-        fetch("/api/admin/audit")
+        fetch("/api/admin/audit"),
+        fetch("/api/admin/governance/stats")
       ]);
 
       if (policiesRes.ok) {
@@ -73,6 +83,11 @@ export default function GovernanceDashboardPage() {
       if (auditRes.ok) {
         const data = await auditRes.json();
         setAuditLogs(Array.isArray(data.logs) ? data.logs.slice(0, 10) : []);
+      }
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setStats(data);
       }
     } catch (error) {
       console.error("Failed to fetch governance data:", error);
@@ -292,17 +307,39 @@ export default function GovernanceDashboardPage() {
             <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               <Card className="p-4" style={{ background: '#fee2e2', borderColor: 'var(--color-error)' }}>
                 <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-error)' }}>차단된 요청 (24시간)</p>
-                <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-error)', marginTop: '4px' }}>{blockedToday}</h3>
+                <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-error)', marginTop: '4px' }}>
+                  {stats?.blocked?.today ?? 0}
+                </h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  이번 주: {stats?.blocked?.week ?? 0}건
+                </p>
               </Card>
               <Card className="p-4" style={{ background: '#fef3c7', borderColor: 'var(--color-warning)' }}>
-                <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-warning)' }}>플래그된 사건</p>
+                <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-warning)' }}>플래그된 사건 (24시간)</p>
                 <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--color-warning)', marginTop: '4px' }}>
-                  {auditLogs.filter(l => l.action.includes("FLAG")).length}
+                  {stats?.flagged?.today ?? 0}
                 </h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  이번 주: {stats?.flagged?.week ?? 0}건
+                </p>
               </Card>
               <Card className="p-4">
                 <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>활성 규칙</p>
-                <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>{activeCount}</h3>
+                <h3 style={{ fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                  {stats?.activePolicies ?? activeCount}
+                </h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  총 {stats?.totalPolicies ?? policies.length}개 정책
+                </p>
+              </Card>
+              <Card className="p-4" style={{ background: '#dbeafe', borderColor: '#3b82f6' }}>
+                <p style={{ fontSize: '12px', fontWeight: 500, color: '#3b82f6' }}>API 요청 (24시간)</p>
+                <h3 style={{ fontSize: '28px', fontWeight: 700, color: '#3b82f6', marginTop: '4px' }}>
+                  {stats?.usage?.today ?? 0}
+                </h3>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  이번 주: {stats?.usage?.week ?? 0}건
+                </p>
               </Card>
             </div>
           </div>

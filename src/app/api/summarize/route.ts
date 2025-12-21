@@ -3,6 +3,8 @@ import { generateText } from "ai";
 import { AIProviderFactory } from "@/lib/ai/factory";
 import { AIModelConfig, AIProviderId } from "@/lib/ai/types";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import mammoth from "mammoth";
 
 const DEFAULT_UPSTAGE_URL = "https://api.upstage.ai/v1/document-digitization";
@@ -319,6 +321,30 @@ export async function POST(request: NextRequest) {
       parsingMethod = "DOCX 파서";
     }
 
+    const modelUsedText = modelConfig ? `${modelConfig.name} (${modelConfig.provider})` : `${modelId} (${providerId})`;
+
+    // Save to history
+    try {
+      const session = await getServerSession(authOptions);
+      await prisma.summaryHistory.create({
+        data: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type || "unknown",
+          originalLength: content.length,
+          summaryLength: parsed.summary?.length || 0,
+          summary: parsed.summary || "",
+          keyPoints: JSON.stringify(parsed.keyPoints || []),
+          keywords: JSON.stringify(parsed.keywords || []),
+          modelUsed: modelUsedText,
+          parsingMethod,
+          userId: session?.user?.id || null,
+        }
+      });
+    } catch (historyError) {
+      console.warn("Failed to save summary history:", historyError);
+    }
+
     return NextResponse.json({
       summary: parsed.summary,
       keyPoints: parsed.keyPoints || [],
@@ -326,7 +352,7 @@ export async function POST(request: NextRequest) {
       wordCount,
       originalLength: content.length,
       estimatedReadTime,
-      modelUsed: modelConfig ? `${modelConfig.name} (${modelConfig.provider})` : `${modelId} (${providerId})`,
+      modelUsed: modelUsedText,
       parsingMethod
     });
   } catch (error) {

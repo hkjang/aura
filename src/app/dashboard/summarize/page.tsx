@@ -14,7 +14,9 @@ import {
   Cpu,
   FileSearch,
   X,
-  AlertCircle
+  AlertCircle,
+  History,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +41,15 @@ interface SystemInfo {
   hasUpstageKey: boolean;
 }
 
+interface HistoryItem {
+  id: string;
+  fileName: string;
+  originalLength: number;
+  summaryLength: number;
+  createdAt: string;
+  summary: string;
+}
+
 export default function SummarizePage() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +58,15 @@ export default function SummarizePage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchHistory = () => {
+    fetch("/api/summarize/history?limit=5")
+      .then(res => res.json())
+      .then(data => setHistory(data.history || []))
+      .catch(console.error);
+  };
 
   useEffect(() => {
     // Fetch system info
@@ -55,6 +74,9 @@ export default function SummarizePage() {
       .then(res => res.json())
       .then(data => setSystemInfo(data))
       .catch(() => setSystemInfo({ aiModel: "알 수 없음", pdfParser: "기본", hasUpstageKey: false }));
+    
+    // Fetch history
+    fetchHistory();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,6 +116,7 @@ export default function SummarizePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "요약 생성에 실패했습니다.");
       setResult(data);
+      fetchHistory(); // Refresh history after new summary
     } catch (err) {
       setError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
     } finally {
@@ -497,6 +520,58 @@ export default function SummarizePage() {
               <li>Upstage 설정 시 스캔 PDF도 지원됩니다</li>
               <li>요약 결과는 저장하거나 공유할 수 있습니다</li>
             </ul>
+          </div>
+
+          {/* History */}
+          <div style={{ 
+            padding: "16px", 
+            background: "var(--bg-primary)",
+            borderRadius: "12px",
+            border: "1px solid var(--border-color)"
+          }}>
+            <h3 style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <History style={{ width: "16px", height: "16px" }} />
+              최근 요약
+            </h3>
+            {history.length === 0 ? (
+              <p style={{ fontSize: "13px", color: "var(--text-tertiary)", textAlign: "center", padding: "16px 0" }}>
+                요약 이력이 없습니다
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {history.map((item) => (
+                  <div 
+                    key={item.id}
+                    style={{ 
+                      padding: "10px 12px",
+                      background: "var(--bg-secondary)",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                    onClick={() => setResult({
+                      summary: item.summary,
+                      keyPoints: [],
+                      keywords: [],
+                      wordCount: 0,
+                      originalLength: item.originalLength,
+                      estimatedReadTime: Math.ceil(item.originalLength / 1000)
+                    })}
+                  >
+                    <p style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)", marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.fileName}
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-tertiary)" }}>
+                      <span>{item.originalLength?.toLocaleString()}자 → {item.summaryLength?.toLocaleString()}자</span>
+                      <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
+                <a href="/dashboard/summarize/history" style={{ fontSize: "12px", color: "#8b5cf6", textDecoration: "none", textAlign: "center", marginTop: "8px" }}>
+                  전체 이력 보기 →
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>
