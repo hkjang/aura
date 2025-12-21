@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart, FileText } from "lucide-react";
+import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart, FileText, Layers, Database } from "lucide-react";
 
 // ============ Interfaces ============
 interface ModelConfig {
@@ -32,6 +32,8 @@ interface ScoringWeights {
 // ============ Tab Definitions ============
 const TABS = [
   { id: 'models', label: 'AI 모델', icon: Cpu, description: 'AI 모델 연결 설정' },
+  { id: 'embedding', label: '임베딩', icon: Layers, description: '임베딩 프로바이더 및 모델' },
+  { id: 'vectordb', label: '벡터 DB', icon: Database, description: '벡터 데이터베이스 연결' },
   { id: 'external', label: '외부 서비스', icon: Link2, description: 'API 키 및 외부 연동' },
   { id: 'summarize', label: '문서 요약', icon: FileText, description: '요약 모델 및 프롬프트' },
   { id: 'scoring', label: '비교 설정', icon: BarChart, description: '모델 비교 점수 가중치' },
@@ -695,6 +697,363 @@ function ScoringSettingsTab() {
   );
 }
 
+// ============ Embedding Settings Tab ============
+function EmbeddingSettingsTab() {
+  const [provider, setProvider] = useState("upstage");
+  const [modelId, setModelId] = useState("solar-embedding-1-large");
+  const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/system-config")
+      .then(res => res.json())
+      .then(data => {
+        const providerConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_PROVIDER');
+        if (providerConfig?.value) setProvider(providerConfig.value);
+
+        const modelConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_MODEL');
+        if (modelConfig?.value) setModelId(modelConfig.value);
+
+        const urlConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_BASE_URL');
+        if (urlConfig?.value && !urlConfig.value.includes('***')) setBaseUrl(urlConfig.value);
+
+        const keyConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_API_KEY');
+        if (keyConfig?.value) setHasApiKey(true);
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "EMBEDDING_PROVIDER", value: provider, description: "임베딩 프로바이더" })
+        }),
+        fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "EMBEDDING_MODEL", value: modelId, description: "임베딩 모델 ID" })
+        }),
+        baseUrl && fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "EMBEDDING_BASE_URL", value: baseUrl, description: "임베딩 API 베이스 URL" })
+        }),
+        apiKey && fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "EMBEDDING_API_KEY", value: apiKey, description: "임베딩 API 키" })
+        }),
+      ].filter(Boolean));
+      setSaved(true);
+      if (apiKey) { setHasApiKey(true); setApiKey(""); }
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const EMBEDDING_PROVIDERS = [
+    { id: 'upstage', name: 'Upstage Solar', models: ['solar-embedding-1-large', 'solar-embedding-1-small'] },
+    { id: 'openai', name: 'OpenAI', models: ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'] },
+    { id: 'ollama', name: 'Ollama (로컬)', models: ['nomic-embed-text', 'all-minilm', 'mxbai-embed-large'] },
+    { id: 'huggingface', name: 'HuggingFace', models: ['BAAI/bge-m3', 'sentence-transformers/all-MiniLM-L6-v2'] },
+  ];
+
+  const currentProvider = EMBEDDING_PROVIDERS.find(p => p.id === provider);
+
+  return (
+    <div style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Layers style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
+          임베딩 프로바이더 설정
+        </h3>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>프로바이더</label>
+            <select
+              className="select-trigger"
+              value={provider}
+              onChange={e => { setProvider(e.target.value); setModelId(EMBEDDING_PROVIDERS.find(p => p.id === e.target.value)?.models[0] || ''); }}
+              style={{ width: '100%' }}
+            >
+              {EMBEDDING_PROVIDERS.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>모델</label>
+            <select
+              className="select-trigger"
+              value={modelId}
+              onChange={e => setModelId(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              {currentProvider?.models.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              <option value="custom">직접 입력...</option>
+            </select>
+          </div>
+        </div>
+
+        {modelId === 'custom' && (
+          <div style={{ marginTop: '12px' }}>
+            <Input 
+              placeholder="커스텀 모델 ID"
+              value={modelId === 'custom' ? '' : modelId}
+              onChange={e => setModelId(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div style={{ marginTop: '16px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>Base URL (Ollama/vLLM용)</label>
+          <Input 
+            placeholder={provider === 'ollama' ? 'http://localhost:11434' : '선택사항'}
+            value={baseUrl}
+            onChange={e => setBaseUrl(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginTop: '16px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>API 키</label>
+          {hasApiKey && (
+            <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', marginBottom: '8px', fontSize: '12px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Check style={{ width: '14px', height: '14px' }} /> API 키 설정됨
+            </div>
+          )}
+          <Input 
+            type="password"
+            placeholder={hasApiKey ? "새 API 키로 변경" : "API 키 입력"}
+            value={apiKey}
+            onChange={e => setApiKey(e.target.value)}
+          />
+        </div>
+
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+              : saved ? <Check style={{ width: '16px', height: '16px' }} /> : '설정 저장'}
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '13px', color: 'var(--text-secondary)' }}>
+        <strong style={{ color: 'var(--text-primary)' }}>💡 프로바이더별 안내</strong>
+        <ul style={{ marginTop: '8px', paddingLeft: '16px', lineHeight: 1.7 }}>
+          <li><strong>Upstage:</strong> 한국어 특화 solar-embedding 제공</li>
+          <li><strong>OpenAI:</strong> text-embedding-3-small 추천 (비용 효율)</li>
+          <li><strong>Ollama:</strong> 로컬 무료, Base URL 필수</li>
+          <li><strong>HuggingFace:</strong> 오픈소스 모델 사용</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// ============ Vector DB Settings Tab ============
+function VectorDBSettingsTab() {
+  const [provider, setProvider] = useState("sqlite");
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [collection, setCollection] = useState("aura_vectors");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/system-config")
+      .then(res => res.json())
+      .then(data => {
+        const providerConfig = data.configs?.find((c: SystemConfig) => c.key === 'VECTORDB_PROVIDER');
+        if (providerConfig?.value) setProvider(providerConfig.value);
+
+        const hostConfig = data.configs?.find((c: SystemConfig) => c.key === 'VECTORDB_HOST');
+        if (hostConfig?.value) setHost(hostConfig.value);
+
+        const portConfig = data.configs?.find((c: SystemConfig) => c.key === 'VECTORDB_PORT');
+        if (portConfig?.value) setPort(portConfig.value);
+
+        const collConfig = data.configs?.find((c: SystemConfig) => c.key === 'VECTORDB_COLLECTION');
+        if (collConfig?.value) setCollection(collConfig.value);
+
+        const keyConfig = data.configs?.find((c: SystemConfig) => c.key === 'VECTORDB_API_KEY');
+        if (keyConfig?.value) setHasApiKey(true);
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "VECTORDB_PROVIDER", value: provider, description: "벡터 DB 프로바이더" })
+        }),
+        host && fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "VECTORDB_HOST", value: host, description: "벡터 DB 호스트" })
+        }),
+        port && fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "VECTORDB_PORT", value: port, description: "벡터 DB 포트" })
+        }),
+        fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "VECTORDB_COLLECTION", value: collection, description: "벡터 DB 컬렉션명" })
+        }),
+        apiKey && fetch("/api/admin/system-config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "VECTORDB_API_KEY", value: apiKey, description: "벡터 DB API 키" })
+        }),
+      ].filter(Boolean));
+      setSaved(true);
+      if (apiKey) { setHasApiKey(true); setApiKey(""); }
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const VECTORDB_PROVIDERS = [
+    { id: 'sqlite', name: 'SQLite (기본)', description: '로컬 파일 기반, 설치 불필요', icon: '📁' },
+    { id: 'milvus', name: 'Milvus', description: '오픈소스, 고성능 벡터 검색', icon: '🔷', defaultPort: '19530' },
+    { id: 'chromadb', name: 'ChromaDB', description: '로컬/클라우드, 간편한 설정', icon: '🎨', defaultPort: '8000' },
+    { id: 'weaviate', name: 'Weaviate', description: '스키마 기반, 시맨틱 검색', icon: '🔮', defaultPort: '8080' },
+    { id: 'pinecone', name: 'Pinecone', description: '클라우드 관리형', icon: '🌲' },
+    { id: 'qdrant', name: 'Qdrant', description: '고성능 러스트 기반', icon: '⚡', defaultPort: '6333' },
+  ];
+
+  const currentVectorDB = VECTORDB_PROVIDERS.find(p => p.id === provider);
+  const needsConnection = provider !== 'sqlite';
+
+  return (
+    <div style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Provider Selection */}
+      <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Database style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
+          벡터 데이터베이스 선택
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+          {VECTORDB_PROVIDERS.map(db => (
+            <div
+              key={db.id}
+              onClick={() => { setProvider(db.id); if ('defaultPort' in db) setPort(db.defaultPort || ''); }}
+              style={{
+                padding: '14px',
+                borderRadius: '10px',
+                border: provider === db.id ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
+                background: provider === db.id ? 'rgba(124, 58, 237, 0.05)' : 'var(--bg-primary)',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+            >
+              <div style={{ fontSize: '18px', marginBottom: '6px' }}>{db.icon}</div>
+              <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{db.name}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>{db.description}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Connection Settings */}
+      {needsConnection && (
+        <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>
+            {currentVectorDB?.name} 연결 설정
+          </h4>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>호스트</label>
+              <Input 
+                placeholder="localhost 또는 IP 주소"
+                value={host}
+                onChange={e => setHost(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>포트</label>
+              <Input 
+                placeholder={currentVectorDB && 'defaultPort' in currentVectorDB ? currentVectorDB.defaultPort : ''}
+                value={port}
+                onChange={e => setPort(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '12px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>컬렉션/인덱스 이름</label>
+            <Input 
+              placeholder="aura_vectors"
+              value={collection}
+              onChange={e => setCollection(e.target.value)}
+            />
+          </div>
+
+          {(provider === 'pinecone' || provider === 'weaviate') && (
+            <div style={{ marginTop: '12px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>API 키</label>
+              {hasApiKey && (
+                <div style={{ padding: '6px 10px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', marginBottom: '8px', fontSize: '11px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Check style={{ width: '12px', height: '12px' }} /> API 키 설정됨
+                </div>
+              )}
+              <Input 
+                type="password"
+                placeholder={hasApiKey ? "새 API 키로 변경" : "API 키 입력"}
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Save Button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
+            : saved ? <><Check style={{ width: '16px', height: '16px', marginRight: '6px' }} />저장됨</> : '설정 저장'}
+        </Button>
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: '16px', background: 'rgba(245, 158, 11, 0.08)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', fontSize: '13px', color: 'var(--text-secondary)' }}>
+        <strong style={{ color: 'var(--text-primary)' }}>⚠️ 참고사항</strong>
+        <ul style={{ marginTop: '8px', paddingLeft: '16px', lineHeight: 1.7 }}>
+          <li><strong>SQLite:</strong> 기본값, 별도 설치 없이 바로 사용 가능</li>
+          <li><strong>외부 DB:</strong> 해당 서비스가 미리 실행 중이어야 함</li>
+          <li>설정 변경 후 새 데이터만 새 DB에 저장됩니다</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ============ Main Settings Page ============
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('models');
@@ -757,6 +1116,8 @@ export default function SettingsPage() {
         </div>
         <div className="card-content">
           {activeTab === 'models' && <ModelSettingsTab />}
+          {activeTab === 'embedding' && <EmbeddingSettingsTab />}
+          {activeTab === 'vectordb' && <VectorDBSettingsTab />}
           {activeTab === 'external' && <ExternalServicesTab />}
           {activeTab === 'summarize' && <SummarizeSettingsTab />}
           {activeTab === 'scoring' && <ScoringSettingsTab />}

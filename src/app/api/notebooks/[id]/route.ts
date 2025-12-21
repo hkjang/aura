@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NotebookService } from "@/lib/notebook/notebook-service";
-import { VectorStore } from "@/lib/notebook/vector-store";
+import { VectorStoreFactory } from "@/lib/notebook/vector-store";
 
 export const dynamic = "force-dynamic";
 
@@ -109,8 +109,16 @@ export async function DELETE(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Remove from vector store first
-    await VectorStore.removeByNotebook(id);
+    // Remove from vector store first (delete by each source in notebook)
+    const sources = await prisma.knowledgeSource.findMany({
+      where: { notebookId: id },
+      select: { id: true },
+    });
+    
+    const vectorStore = await VectorStoreFactory.getStore();
+    for (const source of sources) {
+      await vectorStore.deleteByFilter({ sourceId: source.id });
+    }
 
     // Delete notebook (cascades to sources, chunks, etc.)
     await NotebookService.delete(id, userId);

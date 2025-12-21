@@ -1,6 +1,7 @@
 /**
  * Embedding Service - Generate embeddings for text chunks
- * Supports Upstage and OpenAI embedding APIs with fallback to mock embeddings
+ * Supports Upstage, OpenAI, Ollama, and HuggingFace embedding APIs
+ * Reads configuration from SystemConfig table
  */
 
 import { prisma } from "@/lib/prisma";
@@ -15,23 +16,42 @@ export interface BatchEmbeddingResult {
   model: string;
 }
 
+export interface EmbeddingConfig {
+  provider: "upstage" | "openai" | "ollama" | "huggingface" | "mock";
+  apiKey?: string;
+  model: string;
+  baseUrl?: string;
+}
+
 const EMBEDDING_DIMENSION = 1024; // Standard dimension for most models
 
 export class EmbeddingService {
+  private static configCache: EmbeddingConfig | null = null;
+  private static configCacheTime = 0;
+  private static CONFIG_CACHE_TTL = 60000; // 1 minute cache
+
   /**
    * Get embedding for a single text
    */
   static async embed(text: string): Promise<EmbeddingResult> {
     const config = await this.getConfig();
     
-    if (config.provider === "upstage" && config.apiKey) {
-      return this.embedWithUpstage(text, config.apiKey, config.model);
-    } else if (config.provider === "openai" && config.apiKey) {
-      return this.embedWithOpenAI(text, config.apiKey, config.model);
-    } else {
-      // Fallback to mock embedding
-      return this.mockEmbed(text);
+    switch (config.provider) {
+      case "upstage":
+        if (config.apiKey) return this.embedWithUpstage(text, config.apiKey, config.model);
+        break;
+      case "openai":
+        if (config.apiKey) return this.embedWithOpenAI(text, config.apiKey, config.model);
+        break;
+      case "ollama":
+        return this.embedWithOllama(text, config.baseUrl || "http://localhost:11434", config.model);
+      case "huggingface":
+        if (config.apiKey) return this.embedWithHuggingFace(text, config.apiKey, config.model);
+        break;
     }
+    
+    // Fallback to mock embedding
+    return this.mockEmbed(text);
   }
 
   /**
@@ -40,48 +60,85 @@ export class EmbeddingService {
   static async embedBatch(texts: string[]): Promise<BatchEmbeddingResult> {
     const config = await this.getConfig();
     
-    if (config.provider === "upstage" && config.apiKey) {
-      return this.batchEmbedWithUpstage(texts, config.apiKey, config.model);
-    } else if (config.provider === "openai" && config.apiKey) {
-      return this.batchEmbedWithOpenAI(texts, config.apiKey, config.model);
-    } else {
-      // Fallback to mock embedding
-      const embeddings = texts.map(t => this.generateMockEmbedding(t));
-      return { embeddings, model: "mock" };
+    switch (config.provider) {
+      case "upstage":
+        if (config.apiKey) return this.batchEmbedWithUpstage(texts, config.apiKey, config.model);
+        break;
+      case "openai":
+        if (config.apiKey) return this.batchEmbedWithOpenAI(texts, config.apiKey, config.model);
+        break;
+      case "ollama":
+        return this.batchEmbedWithOllama(texts, config.baseUrl || "http://localhost:11434", config.model);
+      case "huggingface":
+        if (config.apiKey) return this.batchEmbedWithHuggingFace(texts, config.apiKey, config.model);
+        break;
     }
+    
+    // Fallback to mock embedding
+    const embeddings = texts.map(t => this.generateMockEmbedding(t));
+    return { embeddings, model: "mock" };
   }
 
   /**
-   * Get embedding configuration from database or environment
+   * Get current embedding configuration
    */
-  private static async getConfig(): Promise<{
-    provider: "upstage" | "openai" | "mock";
-    apiKey?: string;
-    model: string;
-  }> {
+  static async getCurrentConfig(): Promise<EmbeddingConfig> {
+    return this.getConfig();
+  }
+
+  /**
+   * Clear config cache (call after settings change)
+   */
+  static clearConfigCache(): void {
+    this.configCache = null;
+    this.configCacheTime = 0;
+  }
+
+  /**
+   * Get embedding configuration from database (with caching)
+   */
+  private static async getConfig(): Promise<EmbeddingConfig> {
+    // Return cached config if still valid
+    if (this.configCache && Date.now() - this.configCacheTime < this.CONFIG_CACHE_TTL) {
+      return this.configCache;
+    }
+
     try {
-      // Check for Upstage first
+      // Read from new EMBEDDING_* settings first
+      const [providerConfig, modelConfig, apiKeyConfig, baseUrlConfig] = await Promise.all([
+        prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_PROVIDER" } }),
+        prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_MODEL" } }),
+        prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_API_KEY" } }),
+        prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_BASE_URL" } }),
+      ]);
+
+      if (providerConfig?.value) {
+        const config: EmbeddingConfig = {
+          provider: providerConfig.value as EmbeddingConfig["provider"],
+          model: modelConfig?.value || this.getDefaultModel(providerConfig.value),
+          apiKey: apiKeyConfig?.value || undefined,
+          baseUrl: baseUrlConfig?.value || undefined,
+        };
+        
+        // Cache the config
+        this.configCache = config;
+        this.configCacheTime = Date.now();
+        return config;
+      }
+
+      // Fallback to legacy settings
       const upstageKey = await prisma.systemConfig.findUnique({
         where: { key: "UPSTAGE_API_KEY" },
       });
       if (upstageKey?.value) {
-        return {
+        const config: EmbeddingConfig = {
           provider: "upstage",
           apiKey: upstageKey.value,
           model: "solar-embedding-1-large",
         };
-      }
-
-      // Check for OpenAI
-      const openaiKey = await prisma.systemConfig.findUnique({
-        where: { key: "OPENAI_API_KEY" },
-      });
-      if (openaiKey?.value) {
-        return {
-          provider: "openai",
-          apiKey: openaiKey.value,
-          model: "text-embedding-3-small",
-        };
+        this.configCache = config;
+        this.configCacheTime = Date.now();
+        return config;
       }
 
       // Check environment variables
@@ -107,6 +164,19 @@ export class EmbeddingService {
   }
 
   /**
+   * Get default model for provider
+   */
+  private static getDefaultModel(provider: string): string {
+    switch (provider) {
+      case "upstage": return "solar-embedding-1-large";
+      case "openai": return "text-embedding-3-small";
+      case "ollama": return "nomic-embed-text";
+      case "huggingface": return "BAAI/bge-m3";
+      default: return "mock";
+    }
+  }
+
+  /**
    * Embed with Upstage Solar Embedding API
    */
   private static async embedWithUpstage(
@@ -129,7 +199,6 @@ export class EmbeddingService {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       console.error("Upstage embedding error:", error);
-      // Fallback to mock
       return this.mockEmbed(text);
     }
 
@@ -239,6 +308,132 @@ export class EmbeddingService {
   }
 
   /**
+   * Embed with Ollama (local)
+   */
+  private static async embedWithOllama(
+    text: string,
+    baseUrl: string,
+    model: string
+  ): Promise<EmbeddingResult> {
+    try {
+      const response = await fetch(`${baseUrl}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: text,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Ollama embedding error");
+        return this.mockEmbed(text);
+      }
+
+      const data = await response.json();
+      return {
+        embedding: data.embedding,
+        model,
+      };
+    } catch (error) {
+      console.error("Ollama connection error:", error);
+      return this.mockEmbed(text);
+    }
+  }
+
+  /**
+   * Batch embed with Ollama
+   */
+  private static async batchEmbedWithOllama(
+    texts: string[],
+    baseUrl: string,
+    model: string
+  ): Promise<BatchEmbeddingResult> {
+    // Ollama doesn't support batch, so we do sequential
+    const embeddings: number[][] = [];
+    for (const text of texts) {
+      const result = await this.embedWithOllama(text, baseUrl, model);
+      embeddings.push(result.embedding);
+    }
+    return { embeddings, model };
+  }
+
+  /**
+   * Embed with HuggingFace Inference API
+   */
+  private static async embedWithHuggingFace(
+    text: string,
+    apiKey: string,
+    model: string
+  ): Promise<EmbeddingResult> {
+    try {
+      const response = await fetch(
+        `https://api-inference.huggingface.co/pipeline/feature-extraction/${model}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            inputs: text,
+            options: { wait_for_model: true },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.error("HuggingFace embedding error");
+        return this.mockEmbed(text);
+      }
+
+      const data = await response.json();
+      // HuggingFace returns nested array, take mean pooling
+      const embedding = Array.isArray(data[0]) 
+        ? this.meanPooling(data) 
+        : data;
+      
+      return { embedding, model };
+    } catch (error) {
+      console.error("HuggingFace connection error:", error);
+      return this.mockEmbed(text);
+    }
+  }
+
+  /**
+   * Batch embed with HuggingFace
+   */
+  private static async batchEmbedWithHuggingFace(
+    texts: string[],
+    apiKey: string,
+    model: string
+  ): Promise<BatchEmbeddingResult> {
+    const embeddings: number[][] = [];
+    for (const text of texts) {
+      const result = await this.embedWithHuggingFace(text, apiKey, model);
+      embeddings.push(result.embedding);
+    }
+    return { embeddings, model };
+  }
+
+  /**
+   * Mean pooling for token embeddings
+   */
+  private static meanPooling(tokenEmbeddings: number[][]): number[] {
+    if (tokenEmbeddings.length === 0) return [];
+    const dim = tokenEmbeddings[0].length;
+    const result = new Array(dim).fill(0);
+    
+    for (const embedding of tokenEmbeddings) {
+      for (let i = 0; i < dim; i++) {
+        result[i] += embedding[i];
+      }
+    }
+    
+    return result.map(v => v / tokenEmbeddings.length);
+  }
+
+  /**
    * Generate a mock embedding (for development/fallback)
    */
   private static mockEmbed(text: string): EmbeddingResult {
@@ -255,15 +450,12 @@ export class EmbeddingService {
     const embedding: number[] = [];
     const normalized = text.toLowerCase().trim();
     
-    // Generate a hash-like embedding
     for (let i = 0; i < EMBEDDING_DIMENSION; i++) {
       const charCode = normalized.charCodeAt(i % normalized.length) || 0;
       const seed = (charCode * (i + 1) * 31) % 1000;
-      // Normalize to [-1, 1] range
       embedding.push((seed / 500) - 1);
     }
 
-    // Normalize vector
     const norm = Math.sqrt(embedding.reduce((sum, v) => sum + v * v, 0));
     return embedding.map(v => v / (norm || 1));
   }

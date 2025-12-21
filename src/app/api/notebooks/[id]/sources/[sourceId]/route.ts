@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NotebookService } from "@/lib/notebook/notebook-service";
-import { VectorStore } from "@/lib/notebook/vector-store";
+import { VectorStoreFactory } from "@/lib/notebook/vector-store";
 import { ProcessingPipeline } from "@/lib/notebook/processing-pipeline";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +89,8 @@ export async function DELETE(
     }
 
     // Remove from vector store
-    await VectorStore.removeBySource(sourceId);
+    const vectorStore = await VectorStoreFactory.getStore();
+    await vectorStore.deleteByFilter({ sourceId });
 
     // Delete source (cascades to chunks)
     await prisma.knowledgeSource.delete({

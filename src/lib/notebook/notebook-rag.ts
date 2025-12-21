@@ -3,7 +3,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { VectorStore, SearchResult } from "./vector-store";
+import { VectorStoreFactory, VectorSearchResult } from "./vector-store";
 import { EmbeddingService } from "./embedding-service";
 
 export interface Citation {
@@ -41,7 +41,7 @@ export class NotebookRAG {
       useHybridSearch?: boolean;
     }
   ): Promise<RAGContext> {
-    const { notebookIds, maxTokens = DEFAULT_MAX_TOKENS, limit = 10, useHybridSearch = true } = options;
+    const { notebookIds, maxTokens = DEFAULT_MAX_TOKENS, limit = 10 } = options;
 
     if (!notebookIds || notebookIds.length === 0) {
       return {
@@ -51,21 +51,27 @@ export class NotebookRAG {
       };
     }
 
-    // Search for relevant chunks
-    let searchResults: SearchResult[];
+    // Get source IDs for the notebooks
+    const sources = await prisma.knowledgeSource.findMany({
+      where: { notebookId: { in: notebookIds } },
+      select: { id: true },
+    });
+    const sourceIds = sources.map(s => s.id);
 
-    if (useHybridSearch) {
-      searchResults = await VectorStore.hybridSearch(query, {
-        notebookIds,
-        limit,
-      });
-    } else {
-      searchResults = await VectorStore.search(query, {
-        notebookIds,
-        limit,
-        threshold: 0.3,
-      });
+    if (sourceIds.length === 0) {
+      return {
+        context: "",
+        citations: [],
+        warning: "노트북에 지식 소스가 없습니다.",
+      };
     }
+
+    // Generate query embedding
+    const { embedding: queryEmbedding } = await EmbeddingService.embed(query);
+
+    // Get vector store and search
+    const vectorStore = await VectorStoreFactory.getStore();
+    const searchResults = await vectorStore.search(queryEmbedding, limit, { sourceIds });
 
     // If no results found
     if (searchResults.length === 0) {
@@ -80,12 +86,12 @@ export class NotebookRAG {
     const rerankedResults = this.rerank(query, searchResults);
 
     // Get source titles
-    const sourceIds = [...new Set(rerankedResults.map(r => r.sourceId))];
-    const sources = await prisma.knowledgeSource.findMany({
-      where: { id: { in: sourceIds } },
+    const resultSourceIds = [...new Set(rerankedResults.map(r => r.metadata?.sourceId as string).filter(Boolean))];
+    const sourceTitles = await prisma.knowledgeSource.findMany({
+      where: { id: { in: resultSourceIds } },
       select: { id: true, title: true },
     });
-    const sourceMap = new Map(sources.map(s => [s.id, s.title]));
+    const sourceMap = new Map(sourceTitles.map(s => [s.id, s.title]));
 
     // Build context with token limit
     const maxChars = maxTokens * CHARS_PER_TOKEN;
@@ -93,7 +99,8 @@ export class NotebookRAG {
     const citations: Citation[] = [];
 
     for (const result of rerankedResults) {
-      const chunkText = `[출처: ${sourceMap.get(result.sourceId) || "Unknown"}]\n${result.content}\n\n`;
+      const sourceId = result.metadata?.sourceId as string || "";
+      const chunkText = `[출처: ${sourceMap.get(sourceId) || "Unknown"}]\n${result.content}\n\n`;
 
       if (contextText.length + chunkText.length > maxChars) {
         break;
@@ -101,9 +108,9 @@ export class NotebookRAG {
 
       contextText += chunkText;
       citations.push({
-        sourceId: result.sourceId,
-        sourceTitle: sourceMap.get(result.sourceId) || "Unknown",
-        chunkId: result.chunkId,
+        sourceId,
+        sourceTitle: sourceMap.get(sourceId) || "Unknown",
+        chunkId: result.id,
         content: result.content.substring(0, 200) + (result.content.length > 200 ? "..." : ""),
         score: result.score,
       });
@@ -179,7 +186,7 @@ ${context.context || "(참고할 자료가 없습니다)"}
    * Simple reranking based on keyword overlap
    * Production: Use a proper Cross-Encoder model
    */
-  private static rerank(query: string, results: SearchResult[]): SearchResult[] {
+  private static rerank(query: string, results: VectorSearchResult[]): VectorSearchResult[] {
     const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
 
     const scored = results.map(result => {

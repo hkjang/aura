@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { ChunkingService } from "./chunking-service";
 import { EmbeddingService } from "./embedding-service";
-import { VectorStore } from "./vector-store";
+import { VectorStoreFactory } from "./vector-store";
 import crypto from "crypto";
 
 export interface ProcessingOptions {
@@ -97,13 +97,15 @@ export class ProcessingPipeline {
       // Step 5: Extract keywords if enabled
       const extractKeywords = options.extractKeywords !== false;
 
-      // Step 6: Create chunks in database
-      const createdChunks: Array<{
-        chunkId: string;
-        sourceId: string;
-        notebookId: string;
+      // Get vector store instance
+      const vectorStore = await VectorStoreFactory.getStore();
+
+      // Step 6: Create chunks in database and index in vector store
+      const vectorDocs: Array<{
+        id: string;
         content: string;
         embedding: number[];
+        metadata: Record<string, unknown>;
       }> = [];
 
       for (let i = 0; i < chunks.length; i++) {
@@ -126,17 +128,25 @@ export class ProcessingPipeline {
           },
         });
 
-        createdChunks.push({
-          chunkId: dbChunk.id,
-          sourceId,
-          notebookId: source.notebookId,
+        vectorDocs.push({
+          id: dbChunk.id,
           content: chunk.content,
           embedding,
+          metadata: {
+            sourceId,
+            notebookId: source.notebookId,
+            chunkIndex: chunk.chunkIndex,
+          },
         });
       }
 
-      // Step 7: Index in vector store
-      await VectorStore.indexChunks(createdChunks);
+      // Step 7: Index in vector store (batch insert)
+      try {
+        await vectorStore.insertBatch(vectorDocs);
+      } catch (vectorError) {
+        console.warn("Vector store indexing failed (continuing with SQLite):", vectorError);
+        // Even if external vector store fails, SQLite embeddings are already saved
+      }
 
       // Update source status
       await prisma.knowledgeSource.update({
@@ -180,13 +190,28 @@ export class ProcessingPipeline {
     sourceId: string,
     options: ProcessingOptions = {}
   ): Promise<ProcessingResult> {
-    // Delete existing chunks
+    // Get vector store instance
+    const vectorStore = await VectorStoreFactory.getStore();
+
+    // Get existing chunk IDs to delete from vector store
+    const existingChunks = await prisma.knowledgeChunk.findMany({
+      where: { sourceId },
+      select: { id: true },
+    });
+
+    // Delete from vector store
+    for (const chunk of existingChunks) {
+      try {
+        await vectorStore.delete(chunk.id);
+      } catch (e) {
+        console.warn("Failed to delete from vector store:", e);
+      }
+    }
+
+    // Delete existing chunks from DB
     await prisma.knowledgeChunk.deleteMany({
       where: { sourceId },
     });
-
-    // Remove from vector store
-    await VectorStore.removeBySource(sourceId);
 
     // Increment version
     await prisma.knowledgeSource.update({
