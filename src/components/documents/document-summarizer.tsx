@@ -90,13 +90,15 @@ export function DocumentSummarizer() {
         body: formData,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("요약 생성에 실패했습니다.");
+        throw new Error(data.error || "요약 생성에 실패했습니다.");
       }
 
-      const data = await response.json();
       setResult(data);
     } catch (err) {
+      console.error("Summarize error:", err);
       setError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
     } finally {
       setLoading(false);
