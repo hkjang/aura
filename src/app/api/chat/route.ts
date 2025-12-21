@@ -144,30 +144,37 @@ export async function POST(req: Request) {
       model: languageModel,
       system: systemPrompt || undefined,
       messages,
-      tools: supportsTools ? activeTools : undefined, // Only pass tools if supported
-      onFinish: async (event) => {
-        // Debug: Log the entire event to see actual structure
-        console.log("DEBUG onFinish event:", JSON.stringify(event, null, 2));
-        
-        // Extract usage - handle different SDK versions
-        const usage = event.usage || (event as any).experimental_usage || {};
-        console.log("DEBUG usage object:", usage);
-        
-        // Try different property names used across SDK versions
-        const usageAny = usage as any;
-        const promptTokens = usageAny.promptTokens ?? usageAny.prompt_tokens ?? usageAny.inputTokens ?? 0;
-        const completionTokens = usageAny.completionTokens ?? usageAny.completion_tokens ?? usageAny.outputTokens ?? 0;
-        
-        console.log(`DEBUG Tokens: input=${promptTokens}, output=${completionTokens}`);
-        
-        // Calculate cost
-        const { estimatedCost } = await CostCalculator.calculate(config.modelId, promptTokens, completionTokens);
-        console.log(`DEBUG Estimated cost: ${estimatedCost}`);
+      tools: supportsTools ? activeTools : undefined,
+    });
 
-        // Track budget spend
-        await CostCalculator.trackCost(userId, estimatedCost);
-
+    // Create custom stream that appends usage data at the end
+    const encoder = new TextEncoder();
+    
+    const customStream = new ReadableStream({
+      async start(controller) {
+        let promptTokens = 0;
+        let completionTokens = 0;
+        
+        // Stream the text content
+        for await (const chunk of result.textStream) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        
+        // Get usage from the result (after streaming completes)
         try {
+          const usage = await result.usage;
+          console.log("DEBUG usage:", usage);
+          
+          const usageAny = usage as any;
+          promptTokens = usageAny?.promptTokens ?? usageAny?.prompt_tokens ?? usageAny?.inputTokens ?? 0;
+          completionTokens = usageAny?.completionTokens ?? usageAny?.completion_tokens ?? usageAny?.outputTokens ?? 0;
+          
+          console.log(`DEBUG Tokens: input=${promptTokens}, output=${completionTokens}`);
+          
+          // Calculate cost and log
+          const { estimatedCost } = await CostCalculator.calculate(config.modelId, promptTokens, completionTokens);
+          await CostCalculator.trackCost(userId, estimatedCost);
+          
           await prisma.usageLog.create({
             data: {
               model: config.modelId,
@@ -177,15 +184,21 @@ export async function POST(req: Request) {
               type: "chat"
             }
           });
-          console.log("DEBUG Usage log created successfully");
         } catch (e) {
-          console.error("Failed to log usage", e);
+          console.error("Failed to get usage:", e);
         }
+        
+        // Append usage metadata as a special delimiter + JSON
+        const usageData = `\n---USAGE---\n${JSON.stringify({ tokensIn: promptTokens, tokensOut: completionTokens })}`;
+        controller.enqueue(encoder.encode(usageData));
+        
+        controller.close();
       }
     });
 
-    // Return text stream response - useChat needs streamProtocol: 'text'
-    return result.toTextStreamResponse();
+    return new Response(customStream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    });
   } catch (error) {
     console.error("AI Error:", error);
     return new Response(JSON.stringify({ error: "Failed to generate response" }), { status: 500 });

@@ -104,7 +104,7 @@ export default function ChatInterface() {
   const [inputValue, setInputValue] = useState("");
   
   // Chat state
-  const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; tokensIn?: number; tokensOut?: number }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
@@ -208,12 +208,39 @@ export default function ChatInterface() {
           const chunk = decoder.decode(value, { stream: true });
           fullContent += chunk;
           
-          // Update the assistant message with streaming content
-          setMessages(prev => prev.map(m => 
-            m.id === assistantMessage.id 
-              ? { ...m, content: fullContent }
-              : m
-          ));
+          // Check for usage delimiter and parse
+          const usageDelimiter = '\n---USAGE---\n';
+          const usageIndex = fullContent.indexOf(usageDelimiter);
+          
+          if (usageIndex === -1) {
+            // No usage data yet, show full content
+            setMessages(prev => prev.map(m => 
+              m.id === assistantMessage.id 
+                ? { ...m, content: fullContent }
+                : m
+            ));
+          } else {
+            // Found usage data, split content
+            const textContent = fullContent.substring(0, usageIndex);
+            const usageJson = fullContent.substring(usageIndex + usageDelimiter.length);
+            
+            try {
+              const usage = JSON.parse(usageJson);
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMessage.id 
+                  ? { ...m, content: textContent, tokensIn: usage.tokensIn, tokensOut: usage.tokensOut }
+                  : m
+              ));
+              fullContent = textContent; // For saving to DB
+            } catch (e) {
+              // JSON not complete yet, keep streaming
+              setMessages(prev => prev.map(m => 
+                m.id === assistantMessage.id 
+                  ? { ...m, content: fullContent }
+                  : m
+              ));
+            }
+          }
         }
       }
       

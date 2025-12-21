@@ -18,6 +18,8 @@ interface LocalMessage {
   content: string;
   confidence?: number;
   citations?: Citation[];
+  tokensIn?: number;
+  tokensOut?: number;
 }
 
 interface ChatMessageProps {
@@ -133,6 +135,51 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Token Usage Display for AI messages */}
+        {!isUser && message.content && (message.tokensIn || message.tokensOut) && (
+          <div style={{ 
+            marginTop: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '11px',
+            color: 'var(--text-tertiary)'
+          }}>
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              padding: '4px 8px',
+              background: 'var(--bg-tertiary)',
+              borderRadius: '4px'
+            }}>
+              📥 입력: {message.tokensIn?.toLocaleString() || 0} tokens
+            </span>
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              padding: '4px 8px',
+              background: 'var(--bg-tertiary)',
+              borderRadius: '4px'
+            }}>
+              📤 출력: {message.tokensOut?.toLocaleString() || 0} tokens
+            </span>
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              padding: '4px 8px',
+              background: 'var(--color-primary-light)',
+              color: 'var(--color-primary)',
+              borderRadius: '4px',
+              fontWeight: 500
+            }}>
+              ∑ {((message.tokensIn || 0) + (message.tokensOut || 0)).toLocaleString()} total
+            </span>
           </div>
         )}
 
