@@ -264,6 +264,32 @@ export default function NotebookDetailPage() {
     }
   };
 
+  const fetchChunks = async (sourceId: string) => {
+    setLoadingChunks(true);
+    try {
+      const res = await fetch(`/api/notebooks/${notebookId}/sources/${sourceId}/chunks`);
+      if (res.ok) {
+        const data = await res.json();
+        setChunks(data.chunks || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingChunks(false);
+    }
+  };
+
+  const handleSelectSource = (source: KnowledgeSource) => {
+    if (selectedSource?.id === source.id) {
+      setSelectedSource(null);
+      setChunks([]);
+    } else {
+      setSelectedSource(source);
+      setPreviewTab("content");
+      fetchChunks(source.id);
+    }
+  };
+
   const filteredKBDocs = docSearchQuery
     ? kbDocuments.filter((d) =>
         d.title.toLowerCase().includes(docSearchQuery.toLowerCase())
@@ -498,7 +524,7 @@ export default function NotebookDetailPage() {
                     border: selectedSource?.id === source.id ? "1px solid var(--color-primary)" : "1px solid var(--border-color)",
                     background: selectedSource?.id === source.id ? "rgba(124, 58, 237, 0.03)" : "var(--bg-primary)",
                   }}
-                  onClick={() => setSelectedSource(selectedSource?.id === source.id ? null : source)}
+                  onClick={() => handleSelectSource(source)}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div
@@ -560,34 +586,155 @@ export default function NotebookDetailPage() {
         {selectedSource && (
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>미리보기</h2>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedSource(null)}>
+              <h2 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>{selectedSource.title}</h2>
+              <Button variant="ghost" size="sm" onClick={() => { setSelectedSource(null); setChunks([]); }}>
                 <X style={{ width: "16px", height: "16px" }} />
               </Button>
             </div>
-            <Card className="p-4" style={{ height: "calc(100vh - 450px)", overflow: "auto" }}>
-              <h3 style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>{selectedSource.title}</h3>
-              <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginBottom: "16px" }}>
-                {selectedSource.type} • {new Date(selectedSource.createdAt).toLocaleString("ko-KR")}
-              </div>
-              <div
+
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: "4px", marginBottom: "12px", borderBottom: "1px solid var(--border-color)" }}>
+              <button
+                onClick={() => setPreviewTab("content")}
                 style={{
-                  padding: "16px",
-                  background: "var(--bg-secondary)",
-                  borderRadius: "8px",
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "transparent",
+                  borderBottom: previewTab === "content" ? "2px solid #7c3aed" : "2px solid transparent",
+                  color: previewTab === "content" ? "#7c3aed" : "var(--text-secondary)",
                   fontSize: "13px",
-                  lineHeight: 1.7,
-                  color: "var(--text-primary)",
-                  whiteSpace: "pre-wrap",
+                  fontWeight: 500,
+                  cursor: "pointer",
                 }}
               >
-                {selectedSource.content?.substring(0, 3000)}
-                {selectedSource.content?.length > 3000 && (
-                  <p style={{ marginTop: "16px", color: "var(--text-tertiary)", fontStyle: "italic" }}>
-                    ... (총 {selectedSource.content.length}자 중 3000자만 표시)
-                  </p>
-                )}
-              </div>
+                원문
+              </button>
+              <button
+                onClick={() => setPreviewTab("chunks")}
+                style={{
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "transparent",
+                  borderBottom: previewTab === "chunks" ? "2px solid #7c3aed" : "2px solid transparent",
+                  color: previewTab === "chunks" ? "#7c3aed" : "var(--text-secondary)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                청크
+                <span style={{
+                  padding: "2px 6px",
+                  borderRadius: "10px",
+                  fontSize: "11px",
+                  background: previewTab === "chunks" ? "rgba(124, 58, 237, 0.1)" : "var(--bg-secondary)",
+                  color: previewTab === "chunks" ? "#7c3aed" : "var(--text-tertiary)",
+                }}>
+                  {selectedSource._count?.chunks || chunks.length}
+                </span>
+              </button>
+            </div>
+
+            <Card className="p-4" style={{ height: "calc(100vh - 500px)", overflow: "auto" }}>
+              {previewTab === "content" ? (
+                <>
+                  <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginBottom: "16px" }}>
+                    {selectedSource.type} • {new Date(selectedSource.createdAt).toLocaleString("ko-KR")}
+                  </div>
+                  <div
+                    style={{
+                      padding: "16px",
+                      background: "var(--bg-secondary)",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      lineHeight: 1.7,
+                      color: "var(--text-primary)",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {selectedSource.content?.substring(0, 3000)}
+                    {selectedSource.content?.length > 3000 && (
+                      <p style={{ marginTop: "16px", color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                        ... (총 {selectedSource.content.length}자 중 3000자만 표시)
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {loadingChunks ? (
+                    <div style={{ padding: "40px", textAlign: "center" }}>
+                      <Loader2 style={{ width: "24px", height: "24px", margin: "0 auto", color: "#7c3aed", animation: "spin 1s linear infinite" }} />
+                      <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>청크 불러오는 중...</p>
+                    </div>
+                  ) : chunks.length === 0 ? (
+                    <div style={{ padding: "40px", textAlign: "center" }}>
+                      <FileText style={{ width: "40px", height: "40px", color: "var(--text-tertiary)", margin: "0 auto" }} />
+                      <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>
+                        아직 청크가 없습니다. 처리가 완료되면 청크가 표시됩니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {chunks.map((chunk, i) => (
+                        <div
+                          key={chunk.id}
+                          style={{
+                            padding: "14px",
+                            borderRadius: "10px",
+                            background: "var(--bg-secondary)",
+                            border: "1px solid var(--border-color)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                            <span style={{
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              background: "rgba(124, 58, 237, 0.1)",
+                              color: "#7c3aed",
+                            }}>
+                              청크 #{chunk.chunkIndex + 1}
+                            </span>
+                            <span style={{ fontSize: "11px", color: "var(--text-tertiary)" }}>
+                              {chunk.content.length}자
+                            </span>
+                          </div>
+                          <p style={{
+                            fontSize: "13px",
+                            lineHeight: 1.6,
+                            color: "var(--text-primary)",
+                            whiteSpace: "pre-wrap",
+                          }}>
+                            {chunk.content.substring(0, 500)}
+                            {chunk.content.length > 500 && "..."}
+                          </p>
+                          {chunk.keywords && (
+                            <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                              {JSON.parse(chunk.keywords || "[]").slice(0, 5).map((kw: string, j: number) => (
+                                <span key={j} style={{
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  fontSize: "10px",
+                                  background: "var(--bg-primary)",
+                                  color: "var(--text-tertiary)",
+                                  border: "1px solid var(--border-color)",
+                                }}>
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </Card>
           </div>
         )}
