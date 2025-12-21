@@ -215,6 +215,28 @@ export default function ChatInterface() {
       });
       
       if (!response.ok) {
+        // Handle policy violation errors specially
+        if (response.status === 403) {
+          try {
+            const errorData = await response.json();
+            const policyMessage = errorData.error || "정책에 의해 요청이 차단되었습니다.";
+            
+            // Update assistant message to show policy warning
+            setMessages(prev => prev.map(m => 
+              m.id === assistantMessage.id 
+                ? { 
+                    ...m, 
+                    content: `⚠️ **AI 거버넌스 정책 위반**\n\n${policyMessage}\n\n> 이 메시지는 조직의 AI 사용 정책에 의해 차단되었습니다. 정책을 우회하려고 하지 마세요.\n\n관련 정책 확인: [거버넌스 대시보드](/dashboard/governance)`,
+                    isPolicyViolation: true 
+                  }
+                : m
+            ));
+            setIsLoading(false);
+            return;
+          } catch {
+            // Fall through to generic error
+          }
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       

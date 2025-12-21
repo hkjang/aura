@@ -30,11 +30,13 @@ export async function POST(req: Request) {
 
   // 0.1 CHECK GOVERNANCE POLICY
   // Check the last user message for policy violations
-  const lastMessage = messages[messages.length - 1];
+  let lastMessage = messages[messages.length - 1];
   if (lastMessage && lastMessage.role === 'user') {
       const evaluation = await PolicyEngine.evaluate(lastMessage.content, userId);
       
-      // Log the attempt (Now safe with real userId if found)
+      console.log("DEBUG: Policy evaluation:", { action: evaluation.action, violations: evaluation.violations });
+      
+      // Log the attempt
       await AuditService.log(userId, "CHAT_REQUEST", "model-inference", {
           model,
           policyAction: evaluation.action,
@@ -43,8 +45,15 @@ export async function POST(req: Request) {
 
       if (!evaluation.allowed) {
           return new Response(JSON.stringify({ 
-              error: `Request blocked by policy: ${evaluation.violations.join(", ")}` 
+              error: `정책에 의해 요청이 차단되었습니다: ${evaluation.violations.join(", ")}` 
           }), { status: 403 });
+      }
+
+      // Apply masking if needed
+      if (evaluation.maskedContent && evaluation.action === "MASK") {
+          lastMessage = { ...lastMessage, content: evaluation.maskedContent };
+          messages[messages.length - 1] = lastMessage;
+          console.log("DEBUG: Content masked due to PII detection");
       }
   }
 
