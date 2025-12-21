@@ -1,27 +1,37 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { AIModelConfig, AIProviderService } from "./types";
+import { AIModelConfig } from "./types";
 
 export class AIProviderFactory {
   static createModel(config: AIModelConfig) {
     switch (config.providerId) {
       case "openai":
-      case "vllm": // vLLM is OpenAI-compatible often
-        return AIProviderFactory.createOpenAICompatible(config);
+        return AIProviderFactory.createOpenAIModel(config);
+      case "vllm":
       case "ollama":
-        // For simplicity in this demo, treating Ollama as OpenAI compatible via its compat API
-        // Real implementation might use a dedicated Ollama driver if streaming behaviors differ
-        return AIProviderFactory.createOpenAICompatible(config);
+        // vLLM and Ollama use OpenAI-compatible API
+        return AIProviderFactory.createOpenAICompatibleModel(config);
       default:
         throw new Error(`Provider ${config.providerId} not supported`);
     }
   }
 
-  private static createOpenAICompatible(config: AIModelConfig) {
+  private static createOpenAIModel(config: AIModelConfig) {
     const openai = createOpenAI({
       baseURL: config.baseUrl || "https://api.openai.com/v1",
       apiKey: config.apiKey || process.env.OPENAI_API_KEY || "dummy-key",
     });
 
-    return openai(config.modelId);
+    return openai.chat(config.modelId);
+  }
+
+  private static createOpenAICompatibleModel(config: AIModelConfig) {
+    // For Ollama/vLLM, use .chat() to explicitly use Chat Completions API
+    const openai = createOpenAI({
+      baseURL: config.baseUrl || "http://localhost:11434/v1",
+      apiKey: config.apiKey || "ollama", // Ollama doesn't require a real key
+    });
+
+    // Use .chat() to ensure we use the Chat Completions API endpoint
+    return openai.chat(config.modelId);
   }
 }

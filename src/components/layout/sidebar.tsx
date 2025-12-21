@@ -102,6 +102,8 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       defaultExpanded: true,
       items: [
         { label: "채팅", href: "/dashboard/chat", icon: MessageSquare, description: "AI와 대화" },
+        { label: "문서 요약", href: "/dashboard/summarize", icon: Files, description: "문서 요약" },
+        { label: "코드 생성", href: "/dashboard/code", icon: Bot, description: "코드 생성" },
         { label: "모델 비교", href: "/dashboard/compare", icon: Scale, description: "모델 비교" },
         { label: "에이전트", href: "/dashboard/agents", icon: Bot, description: "AI 에이전트" },
         { label: "프롬프트", href: "/dashboard/prompts", icon: Sparkles, description: "프롬프트 관리" },
