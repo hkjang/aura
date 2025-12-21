@@ -83,6 +83,7 @@ Aura는 데이터 보안, 거버넌스 및 운영 효율성을 보장하면서 �
     - [에이전트 가이드](./docs/guides/user_agents_guide.ko.md)
     - [프롬프트 가이드](./docs/guides/user_prompts_guide.ko.md)
   - [관리 가이드](./docs/guides/management.ko.md)
+    - [노트북 가이드 (New)](./docs/guides/user_notebook_guide.ko.md)
     - [지식 베이스 가이드](./docs/guides/user_knowledge_base_guide.ko.md)
     - [문서 관리 가이드](./docs/guides/user_documents_guide.ko.md)
     - [플러그인 가이드](./docs/guides/user_plugins_guide.ko.md)
