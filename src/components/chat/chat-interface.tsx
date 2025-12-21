@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChatMessage } from "./chat-message";
 import { Button } from "@/components/ui/button";
-import { Send, StopCircle, Settings2, ArrowUp, History } from "lucide-react";
+import { Send, StopCircle, Settings2, ArrowUp, History, Plus } from "lucide-react";
 import { ModelSelector } from "./model-selector";
 import { StructuredPromptBuilder } from "./structured-prompt-builder";
 import { SuggestionPanel, ProgressIndicator } from "./suggestion-panel";
@@ -14,11 +14,18 @@ export default function ChatInterface() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const [selectedModel, setSelectedModel] = useState("gpt-4o");
+  // Load saved model from localStorage or use default
+  const [selectedModel, setSelectedModel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('aura-selected-model') || 'gpt-4o';
+    }
+    return 'gpt-4o';
+  });
   const [showPromptBuilder, setShowPromptBuilder] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [showHistory, setShowHistory] = useState(false);
   
   // Thread management
@@ -56,6 +63,8 @@ export default function ChatInterface() {
   const handleSelectThread = (threadId: string) => {
     router.push(`/dashboard/chat?thread=${threadId}`);
     setShowHistory(false);
+    // Focus input after state update
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleNewThread = () => {
@@ -63,6 +72,8 @@ export default function ChatInterface() {
     setCurrentThreadId(null);
     router.push('/dashboard/chat');
     setShowHistory(false);
+    // Focus input after state update
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   useEffect(() => {
@@ -85,7 +96,11 @@ export default function ChatInterface() {
           
           if (mappedModels.length > 0) {
             setAvailableModels(mappedModels);
-            if (!mappedModels.find((m: any) => m.id === selectedModel)) {
+            // Check if saved model exists in available models
+            const savedModel = localStorage.getItem('aura-selected-model');
+            if (savedModel && mappedModels.find((m: any) => m.id === savedModel)) {
+              setSelectedModel(savedModel);
+            } else if (!mappedModels.find((m: any) => m.id === selectedModel)) {
               setSelectedModel(mappedModels[0].id);
             }
           }
@@ -332,29 +347,70 @@ export default function ChatInterface() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
-        {/* History Toggle Button */}
+        {/* Action Buttons - FAB style */}
         <div style={{
-          position: 'absolute',
-          top: '8px',
-          left: '8px',
-          zIndex: 30
+          position: 'fixed',
+          left: 'calc(var(--sidebar-width) + 20px)',
+          bottom: '140px',
+          display: 'flex',
+          gap: '12px',
+          zIndex: 35
         }}>
+          {/* New Chat Button */}
+          <button
+            onClick={handleNewThread}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 20px',
+              background: 'var(--color-success)',
+              border: 'none',
+              borderRadius: '24px',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              transition: 'all 150ms ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            <Plus style={{ width: '18px', height: '18px' }} />
+            새 대화
+          </button>
+
+          {/* History Button */}
           <button
             onClick={() => setShowHistory(!showHistory)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-              cursor: 'pointer'
+              gap: '8px',
+              padding: '12px 20px',
+              background: 'var(--color-primary)',
+              border: 'none',
+              borderRadius: '24px',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              transition: 'all 150ms ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
             }}
           >
-            <History style={{ width: '16px', height: '16px' }} />
+            <History style={{ width: '18px', height: '18px' }} />
             대화 이력
           </button>
         </div>
@@ -459,7 +515,10 @@ export default function ChatInterface() {
           }}>
             <ModelSelector 
               selectedModelId={selectedModel}
-              onModelChange={setSelectedModel}
+              onModelChange={(model) => {
+                setSelectedModel(model);
+                localStorage.setItem('aura-selected-model', model);
+              }}
               models={availableModels.length > 0 ? availableModels : undefined}
             />
             
@@ -517,6 +576,7 @@ export default function ChatInterface() {
               zIndex: 31, // Slightly above input container
             }}>
               <textarea
+                ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
