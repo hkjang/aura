@@ -25,6 +25,7 @@ model User {
   prompts       PromptTemplate[]
   usageLogs     UsageLog[]
   auditLogs     AuditLog[]
+  snippets      Snippet[]
 }
 
 model Account {
@@ -303,5 +304,19 @@ model WebhookLog {
   status      Int
   response    String?
   createdAt   DateTime @default(now())
+}
+
+// --- Snippets (Input Fragments) ---
+model Snippet {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  tags        String   @default("[]") // JSON array
+  category    String   @default("prompt") // prompt, code, template, instruction, other
+  usageCount  Int      @default(0)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
