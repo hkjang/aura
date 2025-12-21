@@ -15,6 +15,7 @@
 build_log.txt
 dev.db
 prisma/dev.db
+aura-offline.tar
 
 # next.js
 /.next/
