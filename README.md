@@ -74,3 +74,4 @@ See [Offline Deployment Guide](./docs/deployment/offline_deployment.md) for deta
 ## 📖 Documentation
 
 - [User Manual](./docs/manual.md): Comprehensive guide to features and menus.
+- [Visual UI Guide](./docs/ui_guide.md): Screenshots of the application interface.
