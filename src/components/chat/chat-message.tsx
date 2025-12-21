@@ -1,22 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
+import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check, ExternalLink } from "lucide-react";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { ConfidenceBar } from "./confidence-bar";
+
+interface Citation {
+  id: string;
+  title: string;
+  url?: string;
+  snippet?: string;
+}
 
 interface LocalMessage {
   id: string;
   role: string;
   content: string;
+  confidence?: number;
+  citations?: Citation[];
 }
 
 interface ChatMessageProps {
   message: LocalMessage;
   isPinned?: boolean;
   onPin?: (id: string, pinned: boolean) => void;
+  showConfidence?: boolean;
 }
 
-export function ChatMessage({ message, isPinned = false, onPin }: ChatMessageProps) {
+export function ChatMessage({ message, isPinned = false, onPin, showConfidence = true }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [feedback, setFeedback] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -87,6 +98,43 @@ export function ChatMessage({ message, isPinned = false, onPin }: ChatMessagePro
             <MarkdownRenderer content={message.content} />
           )}
         </div>
+
+        {/* Confidence Bar for AI messages */}
+        {!isUser && message.content && showConfidence && message.confidence !== undefined && (
+          <div style={{ marginTop: '12px', maxWidth: '200px' }}>
+            <ConfidenceBar confidence={message.confidence} size="sm" />
+          </div>
+        )}
+
+        {/* Citations */}
+        {!isUser && message.citations && message.citations.length > 0 && (
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '12px', 
+            background: 'var(--bg-secondary)', 
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+              출처
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {message.citations.map((citation, idx) => (
+                <div key={citation.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                  <ExternalLink style={{ width: '12px', height: '12px', color: 'var(--color-primary)', flexShrink: 0 }} />
+                  {citation.url ? (
+                    <a href={citation.url} target="_blank" rel="noopener noreferrer" 
+                       style={{ color: 'var(--color-primary)', textDecoration: 'none' }}>
+                      {citation.title}
+                    </a>
+                  ) : (
+                    <span style={{ color: 'var(--text-primary)' }}>{citation.title}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Actions for AI messages */}
         {!isUser && message.content && (

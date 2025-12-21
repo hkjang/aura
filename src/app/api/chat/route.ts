@@ -145,14 +145,25 @@ export async function POST(req: Request) {
       system: systemPrompt || undefined,
       messages,
       tools: supportsTools ? activeTools : undefined, // Only pass tools if supported
-      onFinish: async ({ usage }) => {
-        // Usage types might vary in recent SDK versions
-        const { promptTokens = 0, completionTokens = 0 } = (usage as any) || {};
+      onFinish: async (event) => {
+        // Debug: Log the entire event to see actual structure
+        console.log("DEBUG onFinish event:", JSON.stringify(event, null, 2));
         
-        // 2. CALCULATE EXACT COST
+        // Extract usage - handle different SDK versions
+        const usage = event.usage || (event as any).experimental_usage || {};
+        console.log("DEBUG usage object:", usage);
+        
+        // Try different property names used across SDK versions
+        const promptTokens = usage.promptTokens ?? usage.prompt_tokens ?? usage.inputTokens ?? 0;
+        const completionTokens = usage.completionTokens ?? usage.completion_tokens ?? usage.outputTokens ?? 0;
+        
+        console.log(`DEBUG Tokens: input=${promptTokens}, output=${completionTokens}`);
+        
+        // Calculate cost
         const { estimatedCost } = await CostCalculator.calculate(config.modelId, promptTokens, completionTokens);
+        console.log(`DEBUG Estimated cost: ${estimatedCost}`);
 
-        // 3. TRACK BUDGET SPEND
+        // Track budget spend
         await CostCalculator.trackCost(userId, estimatedCost);
 
         try {
@@ -161,10 +172,11 @@ export async function POST(req: Request) {
               model: config.modelId,
               tokensIn: promptTokens,
               tokensOut: completionTokens,
-              cost: estimatedCost, // Use precise cost
+              cost: estimatedCost,
               type: "chat"
             }
           });
+          console.log("DEBUG Usage log created successfully");
         } catch (e) {
           console.error("Failed to log usage", e);
         }

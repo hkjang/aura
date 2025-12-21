@@ -4,27 +4,57 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Scale, Loader2, Clock, Zap } from "lucide-react";
+import { Scale, Loader2, Clock, Zap, AlertCircle } from "lucide-react";
 
-// Mock comparison results for demo
-const mockResults = [
-  { model: "gpt-4", provider: "openai", response: "GPT-4의 포괄적인 분석과 세밀한 이해가 담긴 상세한 응답입니다.", latency: 2340, score: 85 },
-  { model: "gpt-3.5-turbo", provider: "openai", response: "GPT-3.5의 핵심을 효율적으로 다룬 빠른 응답입니다.", latency: 890, score: 72 },
-  { model: "llama-3-70b", provider: "vllm", response: "상세함과 속도의 균형이 좋은 오픈소스 모델 응답입니다.", latency: 1560, score: 78 },
-];
+interface ComparisonResult {
+  model: string;
+  provider: string;
+  response: string;
+  latency: number;
+  score?: number;
+}
+
+interface ComparisonStats {
+  modelCount: number;
+  avgLatency: number;
+  avgScore: number;
+  bestModel: string | null;
+}
 
 export default function ModelComparisonPage() {
   const [query, setQuery] = useState("");
   const [comparing, setComparing] = useState(false);
-  const [results, setResults] = useState<typeof mockResults>([]);
+  const [results, setResults] = useState<ComparisonResult[]>([]);
+  const [stats, setStats] = useState<ComparisonStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCompare = async () => {
     if (!query.trim()) return;
     
     setComparing(true);
-    await new Promise(r => setTimeout(r, 2000));
-    setResults(mockResults);
-    setComparing(false);
+    setError(null);
+    setResults([]);
+    setStats(null);
+    
+    try {
+      const response = await fetch("/api/quality/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+      
+      if (!response.ok) {
+        throw new Error("비교 요청에 실패했습니다.");
+      }
+      
+      const data = await response.json();
+      setResults(data.results || []);
+      setStats(data.stats || null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
+    } finally {
+      setComparing(false);
+    }
   };
 
   return (
@@ -61,7 +91,7 @@ export default function ModelComparisonPage() {
           <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>비교 결과</h2>
           
           <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-            {results.sort((a, b) => b.score - a.score).map((result, idx) => (
+            {results.sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).map((result, idx) => (
               <Card key={result.model} className="p-4" style={{ borderWidth: idx === 0 ? '2px' : '1px', borderColor: idx === 0 ? 'var(--color-primary)' : undefined }}>
                 {idx === 0 && (
                   <span className="status status-info" style={{ marginBottom: '12px' }}>최고 매칭</span>
