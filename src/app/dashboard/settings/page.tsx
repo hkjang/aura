@@ -233,18 +233,28 @@ function ModelSettingsTab() {
 }
 
 // ============ External Services Tab ============
+const DEFAULT_UPSTAGE_URL = "https://api.upstage.ai/v1/document-digitization";
+
 function ExternalServicesTab() {
   const [upstageKey, setUpstageKey] = useState("");
+  const [upstageUrl, setUpstageUrl] = useState(DEFAULT_UPSTAGE_URL);
   const [upstageKeySaved, setUpstageKeySaved] = useState(false);
+  const [upstageUrlSaved, setUpstageUrlSaved] = useState(false);
   const [savingUpstage, setSavingUpstage] = useState(false);
+  const [savingUrl, setSavingUrl] = useState(false);
   const [upstageKeyExists, setUpstageKeyExists] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/system-config")
       .then(res => res.json())
       .then(data => {
-        const config = data.configs?.find((c: SystemConfig) => c.key === 'UPSTAGE_API_KEY');
-        if (config?.value) setUpstageKeyExists(true);
+        const keyConfig = data.configs?.find((c: SystemConfig) => c.key === 'UPSTAGE_API_KEY');
+        if (keyConfig?.value) setUpstageKeyExists(true);
+        
+        const urlConfig = data.configs?.find((c: SystemConfig) => c.key === 'UPSTAGE_API_URL');
+        if (urlConfig?.value && !urlConfig.value.includes('***')) {
+          setUpstageUrl(urlConfig.value);
+        }
       })
       .catch(console.error);
   }, []);
@@ -275,6 +285,29 @@ function ExternalServicesTab() {
     }
   };
 
+  const handleSaveUpstageUrl = async () => {
+    setSavingUrl(true);
+    try {
+      const res = await fetch("/api/admin/system-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "UPSTAGE_API_URL",
+          value: upstageUrl,
+          description: "Upstage Document Parsing API URL"
+        })
+      });
+      if (res.ok) {
+        setUpstageUrlSaved(true);
+        setTimeout(() => setUpstageUrlSaved(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingUrl(false);
+    }
+  };
+
   const handleClearUpstageKey = async () => {
     if (!confirm("Upstage API 키를 삭제하시겠습니까?")) return;
     try {
@@ -286,7 +319,8 @@ function ExternalServicesTab() {
   };
 
   return (
-    <div style={{ maxWidth: '600px' }}>
+    <div style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* API Key Section */}
       <div style={{ 
         padding: '20px', 
         background: 'var(--bg-secondary)', 
@@ -338,6 +372,36 @@ function ExternalServicesTab() {
           <Button onClick={handleSaveUpstageKey} disabled={!upstageKey || savingUpstage}>
             {savingUpstage ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> 
               : upstageKeySaved ? <Check style={{ width: '16px', height: '16px' }} /> : '저장'}
+          </Button>
+        </div>
+      </div>
+
+      {/* API URL Section */}
+      <div style={{ 
+        padding: '20px', 
+        background: 'var(--bg-secondary)', 
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid var(--border-color)'
+      }}>
+        <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+          API 엔드포인트 URL
+        </h4>
+        <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '12px' }}>
+          기본값: {DEFAULT_UPSTAGE_URL}
+        </p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Input 
+            placeholder="Upstage API URL"
+            value={upstageUrl}
+            onChange={e => setUpstageUrl(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <Button variant="outline" size="sm" onClick={() => setUpstageUrl(DEFAULT_UPSTAGE_URL)}>
+            기본값
+          </Button>
+          <Button onClick={handleSaveUpstageUrl} disabled={savingUrl}>
+            {savingUrl ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> 
+              : upstageUrlSaved ? <Check style={{ width: '16px', height: '16px' }} /> : '저장'}
           </Button>
         </div>
       </div>

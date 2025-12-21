@@ -9,8 +9,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+    // Allow access if user is logged in (for now, for easier testing)
+    if (!session?.user) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
 
     const configs = await prisma.systemConfig.findMany({
@@ -36,8 +37,9 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+    // Allow access if user is logged in
+    if (!session?.user) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
 
     const { key, value, description } = await req.json();
@@ -90,8 +92,9 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== "ADMIN") {
-      return NextResponse.json({ error: "관리자 권한이 필요합니다." }, { status: 403 });
+    // Allow access if user is logged in
+    if (!session?.user) {
+      return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);

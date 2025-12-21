@@ -5,27 +5,38 @@ import { AIModelConfig, AIProviderId } from "@/lib/ai/types";
 import { prisma } from "@/lib/prisma";
 import mammoth from "mammoth";
 
+const DEFAULT_UPSTAGE_URL = "https://api.upstage.ai/v1/document-digitization";
+
 // Get Upstage API key from DB or environment
 async function getUpstageApiKey(): Promise<string | null> {
-  // Try to get from database first
   try {
     const config = await prisma.systemConfig.findUnique({
       where: { key: 'UPSTAGE_API_KEY' }
     });
-    if (config?.value) {
-      return config.value;
-    }
+    if (config?.value) return config.value;
   } catch (error) {
     console.warn("Failed to get UPSTAGE_API_KEY from DB:", error);
   }
-  
-  // Fallback to environment variable
   return process.env.UPSTAGE_API_KEY || null;
+}
+
+// Get Upstage API URL from DB or use default
+async function getUpstageApiUrl(): Promise<string> {
+  try {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: 'UPSTAGE_API_URL' }
+    });
+    if (config?.value) return config.value;
+  } catch (error) {
+    console.warn("Failed to get UPSTAGE_API_URL from DB:", error);
+  }
+  return DEFAULT_UPSTAGE_URL;
 }
 
 // Parse PDF using Upstage Document Parsing API
 async function parseWithUpstage(file: File): Promise<string> {
   const upstageApiKey = await getUpstageApiKey();
+  const upstageApiUrl = await getUpstageApiUrl();
   
   if (!upstageApiKey) {
     throw new Error("UPSTAGE_API_KEY가 설정되지 않았습니다. 설정 > 외부 서비스에서 설정해주세요.");
@@ -33,10 +44,12 @@ async function parseWithUpstage(file: File): Promise<string> {
 
   const formData = new FormData();
   formData.append("document", file);
-  formData.append("ocr", "force"); // Force OCR for image-based PDFs
-  formData.append("output_formats", "text"); // Get plain text output
+  formData.append("output_formats", JSON.stringify(["text"]));
+  formData.append("ocr", "auto");
+  formData.append("model", "document-parse");
 
-  const response = await fetch("https://api.upstage.ai/v1/document-digitization/document-parse", {
+  // Upstage Document Parse API
+  const response = await fetch(upstageApiUrl, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${upstageApiKey}`,
@@ -47,53 +60,39 @@ async function parseWithUpstage(file: File): Promise<string> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     console.error("Upstage API error:", errorData);
-    throw new Error(errorData.message || `Upstage API 오류: ${response.status}`);
+    throw new Error(errorData.message || errorData.error?.message || `Upstage API 오류: ${response.status}`);
   }
 
   const result = await response.json();
+  console.log("Upstage response keys:", Object.keys(result));
   
   // Extract text content from the response
-  // Upstage returns parsed content in various formats
   let extractedText = "";
   
-  if (result.content) {
-    // Direct text content
-    if (typeof result.content === "string") {
-      extractedText = result.content;
-    } else if (result.content.text) {
-      extractedText = result.content.text;
+  // Priority 1: content.markdown (most reliable for structured text)
+  if (result.content?.markdown) {
+    extractedText = result.content.markdown;
+  }
+  // Priority 2: content.text
+  else if (result.content?.text && result.content.text.length > 0) {
+    extractedText = result.content.text;
+  }
+  // Priority 3: elements array with markdown content
+  else if (result.elements && Array.isArray(result.elements)) {
+    const textParts = result.elements
+      .filter((el: any) => el.content?.markdown || el.content?.text)
+      .map((el: any) => el.content?.markdown || el.content?.text);
+    if (textParts.length > 0) {
+      extractedText = textParts.join("\n\n");
     }
   }
-  
-  if (result.text) {
+  // Priority 4: text field directly
+  else if (result.text) {
     extractedText = result.text;
-  }
-  
-  // Handle elements array (structured output)
-  if (result.elements && Array.isArray(result.elements)) {
-    extractedText = result.elements
-      .filter((el: any) => el.text || el.content)
-      .map((el: any) => el.text || el.content)
-      .join("\n\n");
-  }
-
-  // Handle pages array
-  if (result.pages && Array.isArray(result.pages)) {
-    extractedText = result.pages
-      .map((page: any) => {
-        if (page.text) return page.text;
-        if (page.elements) {
-          return page.elements
-            .filter((el: any) => el.text)
-            .map((el: any) => el.text)
-            .join("\n");
-        }
-        return "";
-      })
-      .join("\n\n");
   }
 
   if (!extractedText || extractedText.trim().length < 10) {
+    console.error("No text extracted from Upstage response:", JSON.stringify(result).substring(0, 1000));
     throw new Error("Upstage에서 텍스트를 추출할 수 없습니다.");
   }
 
