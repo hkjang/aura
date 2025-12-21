@@ -80,3 +80,7 @@ Aura는 데이터 보안, 거버넌스 및 운영 효율성을 보장하면서 �
   - [관리 가이드](./docs/guides/management.ko.md)
   - [분석 가이드](./docs/guides/analytics.ko.md)
   - [시스템 가이드](./docs/guides/system.ko.md)
+- **역할별 가이드**:
+  - [사용자(USER) 가이드](./docs/roles/user_guide.ko.md)
+  - [관리자(ADMIN) 가이드](./docs/roles/admin_guide.ko.md)
+  - [관리자 AI 모델 설정 상세 가이드](./docs/guides/admin_ai_model_settings.ko.md)
