@@ -385,7 +385,7 @@ export default function NotebookSettingsPage() {
       {/* Tab Content */}
       {activeTab === "settings" && (
         <div style={{ maxWidth: "600px" }}>
-          <Card className="p-6">
+          <Card style={{ padding: "24px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "20px" }}>
               기본 설정
             </h3>
@@ -453,7 +453,7 @@ export default function NotebookSettingsPage() {
             </div>
           </Card>
 
-          <Card className="p-6" style={{ marginTop: "24px", border: "1px solid var(--color-error)" }}>
+          <Card style={{ padding: "24px", marginTop: "24px", border: "1px solid var(--color-error)" }}>
             <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--color-error)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
               <AlertTriangle style={{ width: "18px", height: "18px" }} />
               위험 영역
@@ -474,7 +474,7 @@ export default function NotebookSettingsPage() {
 
       {activeTab === "shares" && (
         <div style={{ maxWidth: "600px" }}>
-          <Card className="p-6">
+          <Card style={{ padding: "24px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "20px" }}>
               공유 추가
             </h3>
@@ -514,7 +514,7 @@ export default function NotebookSettingsPage() {
             </h3>
 
             {shares.length === 0 ? (
-              <Card className="p-6" style={{ textAlign: "center" }}>
+              <Card style={{ padding: "24px", textAlign: "center" }}>
                 <Users style={{ width: "40px", height: "40px", color: "var(--text-tertiary)", margin: "0 auto" }} />
                 <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>
                   아직 공유된 사용자가 없습니다
@@ -523,7 +523,7 @@ export default function NotebookSettingsPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {shares.map((share) => (
-                  <Card key={share.id} className="p-4">
+                  <Card key={share.id} style={{ padding: "16px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <div
@@ -582,7 +582,7 @@ export default function NotebookSettingsPage() {
 
       {activeTab === "comments" && (
         <div style={{ maxWidth: "600px" }}>
-          <Card className="p-6">
+          <Card style={{ padding: "24px" }}>
             <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "16px" }}>
               코멘트 추가
             </h3>
@@ -605,7 +605,7 @@ export default function NotebookSettingsPage() {
             </h3>
 
             {comments.length === 0 ? (
-              <Card className="p-6" style={{ textAlign: "center" }}>
+              <Card style={{ padding: "24px", textAlign: "center" }}>
                 <MessageSquare style={{ width: "40px", height: "40px", color: "var(--text-tertiary)", margin: "0 auto" }} />
                 <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>
                   아직 코멘트가 없습니다
@@ -614,7 +614,7 @@ export default function NotebookSettingsPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {comments.map((comment) => (
-                  <Card key={comment.id} className="p-4">
+                  <Card key={comment.id} style={{ padding: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
                       <span style={{ fontWeight: 500, fontSize: "13px", color: "var(--text-primary)" }}>
                         {comment.user.name || comment.user.email || "Unknown"}
@@ -646,7 +646,7 @@ export default function NotebookSettingsPage() {
           </h3>
 
           {auditLogs.length === 0 ? (
-            <Card className="p-6" style={{ textAlign: "center" }}>
+            <Card style={{ padding: "24px", textAlign: "center" }}>
               <History style={{ width: "40px", height: "40px", color: "var(--text-tertiary)", margin: "0 auto" }} />
               <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>
                 아직 변경 이력이 없습니다
@@ -655,7 +655,7 @@ export default function NotebookSettingsPage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {auditLogs.map((log) => (
-                <Card key={log.id} className="p-4">
+                <Card key={log.id} style={{ padding: "16px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div
                       style={{

@@ -466,19 +466,19 @@ export default function NotebookDetailPage() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px" }}>
-        <Card className="p-4">
+        <Card style={{ padding: "16px" }}>
           <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>지식 소스</p>
           <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>{stats?.sourceCount || 0}</h3>
         </Card>
-        <Card className="p-4">
+        <Card style={{ padding: "16px" }}>
           <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>청크</p>
           <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--color-primary)" }}>{stats?.chunkCount || 0}</h3>
         </Card>
-        <Card className="p-4">
+        <Card style={{ padding: "16px" }}>
           <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>Q&A 수</p>
           <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>{stats?.qnaCount || 0}</h3>
         </Card>
-        <Card className="p-4">
+        <Card style={{ padding: "16px" }}>
           <p style={{ fontSize: "12px", color: "var(--text-secondary)" }}>총 용량</p>
           <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text-primary)" }}>
             {stats?.totalSize ? `${(stats.totalSize / 1024).toFixed(1)} KB` : "0 KB"}
@@ -488,7 +488,7 @@ export default function NotebookDetailPage() {
 
       {/* Upload Progress */}
       {uploadProgress && (
-        <Card className="p-4" style={{ background: "rgba(124, 58, 237, 0.05)", border: "1px solid rgba(124, 58, 237, 0.2)" }}>
+        <Card style={{ padding: "16px", background: "rgba(37, 99, 235, 0.05)", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {uploading ? (
               <Loader2 style={{ width: "20px", height: "20px", color: "var(--color-primary)", animation: "spin 1s linear infinite" }} />
@@ -524,8 +524,8 @@ export default function NotebookDetailPage() {
             URL 추가
           </Button>
           <Button variant="outline" onClick={handleOpenDocImport} disabled={uploading} 
-            style={{ background: "rgba(124, 58, 237, 0.05)", borderColor: "rgba(124, 58, 237, 0.3)" }}>
-            <Database style={{ width: "16px", height: "16px", marginRight: "8px", color: "#7c3aed" }} />
+            style={{ background: "rgba(37, 99, 235, 0.05)", borderColor: "rgba(37, 99, 235, 0.3)" }}>
+            <Database style={{ width: "16px", height: "16px", marginRight: "8px", color: "var(--color-primary)" }} />
             지식 베이스에서 가져오기
           </Button>
         </div>
@@ -552,7 +552,7 @@ export default function NotebookDetailPage() {
         </div>
 
           {notebook.sources?.length === 0 ? (
-            <Card className="p-6" style={{ textAlign: "center" }}>
+            <Card style={{ padding: "24px", textAlign: "center" }}>
               <FileText style={{ width: "40px", height: "40px", color: "var(--text-tertiary)", margin: "0 auto" }} />
               <p style={{ marginTop: "12px", color: "var(--text-secondary)", fontSize: "14px" }}>
                 아직 지식 소스가 없습니다. 파일을 업로드하거나 텍스트/URL을 추가해보세요.
@@ -563,11 +563,11 @@ export default function NotebookDetailPage() {
               {notebook.sources?.map((source) => (
                 <Card
                   key={source.id}
-                  className="p-4"
                   style={{
+                    padding: "16px",
                     cursor: "pointer",
                     border: selectedSource?.id === source.id ? "1px solid var(--color-primary)" : "1px solid var(--border-color)",
-                    background: selectedSource?.id === source.id ? "rgba(124, 58, 237, 0.03)" : "var(--bg-primary)",
+                    background: selectedSource?.id === source.id ? "rgba(37, 99, 235, 0.03)" : "var(--bg-primary)",
                   }}
                   onClick={() => handleSelectSource(source)}
                 >
@@ -683,7 +683,7 @@ export default function NotebookDetailPage() {
               </button>
             </div>
 
-            <Card className="p-4" style={{ height: "calc(100vh - 500px)", overflow: "auto" }}>
+            <Card style={{ padding: "16px", height: "calc(100vh - 500px)", overflow: "auto" }}>
               {previewTab === "content" ? (
                 <>
                   <div style={{ fontSize: "12px", color: "var(--text-tertiary)", marginBottom: "16px" }}>
@@ -791,7 +791,7 @@ export default function NotebookDetailPage() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowTextInput(false)}
         >
-          <Card className="p-6" style={{ width: "100%", maxWidth: "600px", margin: "16px" }} onClick={(e) => e.stopPropagation()}>
+          <Card style={{ padding: "24px", width: "100%", maxWidth: "600px", margin: "16px" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "20px" }}>텍스트 입력</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <Input
@@ -830,7 +830,7 @@ export default function NotebookDetailPage() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowUrlInput(false)}
         >
-          <Card className="p-6" style={{ width: "100%", maxWidth: "500px", margin: "16px" }} onClick={(e) => e.stopPropagation()}>
+          <Card style={{ padding: "24px", width: "100%", maxWidth: "500px", margin: "16px" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "20px" }}>URL 추가</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <Input
@@ -858,7 +858,7 @@ export default function NotebookDetailPage() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
           onClick={() => setShowDocImport(false)}
         >
-          <Card className="p-6" style={{ width: "100%", maxWidth: "600px", margin: "16px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+          <Card style={{ padding: "24px", width: "100%", maxWidth: "600px", margin: "16px", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
               <div style={{
                 width: "40px",

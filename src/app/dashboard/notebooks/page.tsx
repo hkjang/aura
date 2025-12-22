@@ -157,19 +157,19 @@ export default function NotebooksPage() {
               justifyContent: "center",
               boxShadow: "0 4px 14px rgba(124, 58, 237, 0.35)"
             }}>
-              <BookOpen style={{ width: "24px", height: "24px", color: "white" }} />
+              <BookOpen style={{ width: "24px", height: "24px", color: "var(--bg-primary)" }} />
             </div>
             <div>
               <h1 style={{ 
                 fontSize: "28px", 
                 fontWeight: 700, 
-                color: "#1e293b",
+                color: "var(--text-primary)",
                 letterSpacing: "-0.02em"
               }}>
                 노트북
               </h1>
               <p style={{ 
-                color: "#64748b", 
+                color: "var(--text-secondary)", 
                 marginTop: "2px", 
                 fontSize: "15px" 
               }}>
@@ -185,9 +185,9 @@ export default function NotebooksPage() {
               padding: "10px 16px",
               fontSize: "14px",
               fontWeight: 500,
-              border: "1px solid #e2e8f0",
-              background: "white",
-              color: "#475569"
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-primary)",
+              color: "var(--text-primary)"
             }}>
               <Layers style={{ width: "16px", height: "16px", marginRight: "8px", color: "#8b5cf6" }} />
               다중 질의
@@ -199,9 +199,9 @@ export default function NotebooksPage() {
               padding: "10px 16px",
               fontSize: "14px",
               fontWeight: 500,
-              border: "1px solid #e2e8f0",
-              background: "white",
-              color: "#475569"
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-primary)",
+              color: "var(--text-primary)"
             }}>
               <History style={{ width: "16px", height: "16px", marginRight: "8px", color: "#f59e0b" }} />
               Q&A 히스토리
@@ -212,9 +212,9 @@ export default function NotebooksPage() {
             padding: "10px 16px",
             fontSize: "14px",
             fontWeight: 500,
-            border: "1px solid #e2e8f0",
-            background: "white",
-            color: "#475569"
+            border: "1px solid var(--border-color)",
+            background: "var(--bg-primary)",
+            color: "var(--text-primary)"
           }}>
             <RefreshCw style={{ width: "16px", height: "16px", marginRight: "8px" }} />
             새로고침
@@ -264,10 +264,10 @@ export default function NotebooksPage() {
               paddingRight: "16px",
               height: "44px",
               borderRadius: "12px",
-              border: "1px solid #e2e8f0",
-              background: "white",
+              border: "1px solid var(--border-color)",
+              background: "var(--bg-primary)",
               fontSize: "14px",
-              color: "#1e293b",
+              color: "var(--text-primary)",
               outline: "none",
               transition: "all 0.2s",
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
@@ -280,8 +280,8 @@ export default function NotebooksPage() {
           <div style={{
             padding: "12px 20px",
             borderRadius: "12px",
-            background: "white",
-            border: "1px solid #e2e8f0",
+            background: "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
             display: "flex",
             alignItems: "center",
             gap: "12px",
@@ -299,15 +299,15 @@ export default function NotebooksPage() {
               <BookOpen style={{ width: "18px", height: "18px", color: "#7c3aed" }} />
             </div>
             <div>
-              <p style={{ fontSize: "12px", color: "#64748b", fontWeight: 500 }}>내 노트북</p>
-              <p style={{ fontSize: "22px", fontWeight: 700, color: "#1e293b" }}>{notebooks.owned.length}</p>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>내 노트북</p>
+              <p style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>{notebooks.owned.length}</p>
             </div>
           </div>
           <div style={{
             padding: "12px 20px",
             borderRadius: "12px",
-            background: "white",
-            border: "1px solid #e2e8f0",
+            background: "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
             display: "flex",
             alignItems: "center",
             gap: "12px",
@@ -325,15 +325,15 @@ export default function NotebooksPage() {
               <Users style={{ width: "18px", height: "18px", color: "#8b5cf6" }} />
             </div>
             <div>
-              <p style={{ fontSize: "12px", color: "#64748b", fontWeight: 500 }}>공유 받음</p>
-              <p style={{ fontSize: "22px", fontWeight: 700, color: "#1e293b" }}>{notebooks.shared.length}</p>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>공유 받음</p>
+              <p style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>{notebooks.shared.length}</p>
             </div>
           </div>
           <div style={{
             padding: "12px 20px",
             borderRadius: "12px",
-            background: "white",
-            border: "1px solid #e2e8f0",
+            background: "var(--bg-primary)",
+            border: "1px solid var(--border-color)",
             display: "flex",
             alignItems: "center",
             gap: "12px",
@@ -351,8 +351,8 @@ export default function NotebooksPage() {
               <FileText style={{ width: "18px", height: "18px", color: "#10b981" }} />
             </div>
             <div>
-              <p style={{ fontSize: "12px", color: "#64748b", fontWeight: 500 }}>총 소스</p>
-              <p style={{ fontSize: "22px", fontWeight: 700, color: "#1e293b" }}>{allNotebooks.reduce((sum, n) => sum + n._count.sources, 0)}</p>
+              <p style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 500 }}>총 소스</p>
+              <p style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-primary)" }}>{allNotebooks.reduce((sum, n) => sum + n._count.sources, 0)}</p>
             </div>
           </div>
         </div>
@@ -363,9 +363,9 @@ export default function NotebooksPage() {
         <div style={{ 
           padding: "80px", 
           textAlign: "center",
-          background: "white",
+          background: "var(--bg-primary)",
           borderRadius: "16px",
-          border: "1px solid #e2e8f0"
+          border: "1px solid var(--border-color)"
         }}>
           <Loader2 style={{ 
             width: "40px", 
@@ -374,15 +374,15 @@ export default function NotebooksPage() {
             color: "#7c3aed", 
             animation: "spin 1s linear infinite" 
           }} />
-          <p style={{ marginTop: "20px", color: "#64748b", fontSize: "15px" }}>노트북 불러오는 중...</p>
+          <p style={{ marginTop: "20px", color: "var(--text-secondary)", fontSize: "15px" }}>노트북 불러오는 중...</p>
         </div>
       ) : filteredNotebooks.length === 0 ? (
         <div style={{ 
           padding: "80px 40px", 
           textAlign: "center",
-          background: "white",
+          background: "var(--bg-primary)",
           borderRadius: "16px",
-          border: "1px solid #e2e8f0"
+          border: "1px solid var(--border-color)"
         }}>
           <div style={{
             width: "72px",
@@ -396,10 +396,10 @@ export default function NotebooksPage() {
           }}>
             <FolderOpen style={{ width: "36px", height: "36px", color: "#7c3aed" }} />
           </div>
-          <h3 style={{ fontWeight: 600, color: "#1e293b", marginTop: "20px", fontSize: "18px" }}>
+          <h3 style={{ fontWeight: 600, color: "var(--text-primary)", marginTop: "20px", fontSize: "18px" }}>
             {searchQuery ? "검색 결과가 없습니다" : "노트북이 없습니다"}
           </h3>
-          <p style={{ fontSize: "15px", color: "#64748b", marginTop: "8px" }}>
+          <p style={{ fontSize: "15px", color: "var(--text-secondary)", marginTop: "8px" }}>
             {searchQuery ? "다른 검색어를 시도해보세요" : "새 노트북을 만들어 지식을 관리하세요"}
           </p>
           {!searchQuery && (
@@ -430,9 +430,9 @@ export default function NotebooksPage() {
               <Link key={notebook.id} href={`/dashboard/notebooks/${notebook.id}`} style={{ textDecoration: "none" }}>
                 <div
                   style={{
-                    background: "white",
+                    background: "var(--bg-primary)",
                     borderRadius: "16px",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--border-color)",
                     overflow: "hidden",
                     cursor: "pointer",
                     transition: "all 0.25s ease",
@@ -468,13 +468,13 @@ export default function NotebooksPage() {
                           boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
                         }}
                       >
-                        <BookOpen style={{ width: "24px", height: "24px", color: "white" }} />
+                        <BookOpen style={{ width: "24px", height: "24px", color: "var(--bg-primary)" }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
                           <h3 style={{ 
                             fontWeight: 600, 
-                            color: "#1e293b", 
+                            color: "var(--text-primary)", 
                             fontSize: "16px",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -498,7 +498,7 @@ export default function NotebooksPage() {
                           <p
                             style={{
                               fontSize: "13px",
-                              color: "#64748b",
+                              color: "var(--text-secondary)",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
@@ -525,7 +525,7 @@ export default function NotebooksPage() {
                         alignItems: "center", 
                         gap: "6px",
                         fontSize: "13px",
-                        color: "#64748b",
+                        color: "var(--text-secondary)",
                         fontWeight: 500
                       }}>
                         <FileText style={{ width: "14px", height: "14px", color: "#94a3b8" }} />
@@ -536,7 +536,7 @@ export default function NotebooksPage() {
                         alignItems: "center", 
                         gap: "6px",
                         fontSize: "13px",
-                        color: "#64748b",
+                        color: "var(--text-secondary)",
                         fontWeight: 500
                       }}>
                         <MessageSquare style={{ width: "14px", height: "14px", color: "#94a3b8" }} />
@@ -574,7 +574,7 @@ export default function NotebooksPage() {
               width: "100%", 
               maxWidth: "480px", 
               margin: "16px",
-              background: "white",
+              background: "var(--bg-primary)",
               borderRadius: "20px",
               padding: "28px",
               boxShadow: "0 25px 50px rgba(0,0,0,0.15)"
@@ -591,13 +591,13 @@ export default function NotebooksPage() {
                 alignItems: "center",
                 justifyContent: "center"
               }}>
-                <Sparkles style={{ width: "22px", height: "22px", color: "white" }} />
+                <Sparkles style={{ width: "22px", height: "22px", color: "var(--bg-primary)" }} />
               </div>
               <div>
-                <h2 style={{ fontSize: "20px", fontWeight: 600, color: "#1e293b" }}>
+                <h2 style={{ fontSize: "20px", fontWeight: 600, color: "var(--text-primary)" }}>
                   새 노트북 만들기
                 </h2>
-                <p style={{ fontSize: "14px", color: "#64748b", marginTop: "2px" }}>
+                <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginTop: "2px" }}>
                   지식을 모아 AI에게 질문하세요
                 </p>
               </div>
@@ -622,9 +622,9 @@ export default function NotebooksPage() {
                     width: "100%",
                     padding: "12px 14px",
                     borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--border-color)",
                     fontSize: "14px",
-                    color: "#1e293b",
+                    color: "var(--text-primary)",
                     outline: "none",
                     transition: "border-color 0.2s"
                   }}
@@ -649,9 +649,9 @@ export default function NotebooksPage() {
                     width: "100%",
                     padding: "12px 14px",
                     borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
+                    border: "1px solid var(--border-color)",
                     fontSize: "14px",
-                    color: "#1e293b",
+                    color: "var(--text-primary)",
                     outline: "none"
                   }}
                 />
@@ -674,9 +674,9 @@ export default function NotebooksPage() {
                     width: "100%",
                     padding: "12px 14px",
                     borderRadius: "10px",
-                    border: "1px solid #e2e8f0",
-                    background: "white",
-                    color: "#1e293b",
+                    border: "1px solid var(--border-color)",
+                    background: "var(--bg-primary)",
+                    color: "var(--text-primary)",
                     fontSize: "14px",
                     cursor: "pointer"
                   }}
@@ -718,9 +718,9 @@ export default function NotebooksPage() {
                 style={{
                   padding: "12px 20px",
                   borderRadius: "10px",
-                  border: "1px solid #e2e8f0",
-                  background: "white",
-                  color: "#64748b",
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-primary)",
+                  color: "var(--text-secondary)",
                   fontSize: "14px",
                   fontWeight: 500,
                   cursor: "pointer"
@@ -735,8 +735,8 @@ export default function NotebooksPage() {
                   padding: "12px 24px",
                   borderRadius: "10px",
                   border: "none",
-                  background: !newNotebook.name.trim() ? "#e2e8f0" : "linear-gradient(135deg, #7c3aed, #8b5cf6)",
-                  color: !newNotebook.name.trim() ? "#94a3b8" : "white",
+                  background: !newNotebook.name.trim() ? "var(--border-color)" : "linear-gradient(135deg, #7c3aed, #8b5cf6)",
+                  color: !newNotebook.name.trim() ? "#94a3b8" : "var(--bg-primary)",
                   fontSize: "14px",
                   fontWeight: 600,
                   cursor: !newNotebook.name.trim() ? "not-allowed" : "pointer",

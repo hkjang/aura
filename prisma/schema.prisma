@@ -346,8 +346,6 @@ model SummaryHistory {
   createdAt      DateTime @default(now())
 }
 
-// --- Notebook-based Knowledge System ---
-
 // 노트북: 사용자/팀 단위 지식 컨테이너
 model Notebook {
   id          String   @id @default(cuid())
@@ -357,6 +355,12 @@ model Notebook {
   ownerId     String
   isPublic    Boolean  @default(false)
   tags        String   @default("[]") // JSON array
+  
+  // 관리자 필드
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, DELETED
+  deletedAt   DateTime?
+  templateId  String?  // 템플릿에서 생성된 경우
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -463,7 +467,6 @@ model QnAHistory {
   createdAt   DateTime @default(now())
 }
 
-// 노트북 변경 이력
 model NotebookAudit {
   id          String   @id @default(cuid())
   notebookId  String
@@ -472,3 +475,208 @@ model NotebookAudit {
   details     String?  // JSON
   createdAt   DateTime @default(now())
 }
+
+// ========================================
+// 노트북 관리자 시스템 (Admin Management)
+// ========================================
+
+// 관리자 역할 정의
+model NotebookAdminRole {
+  id          String   @id @default(cuid())
+  userId      String
+  roleType    String   // SYSTEM_ADMIN, ORG_ADMIN, KNOWLEDGE_ADMIN, SECURITY_ADMIN
+  orgId       String?  // 조직 관리자인 경우 조직 ID
+  permissions String   @default("[]") // JSON: ["CREATE", "DELETE", "MANAGE_POLICY"]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, roleType, orgId])
+}
+
+// 노트북 정책 (생성/수정/삭제/Q&A 제어)
+model NotebookPolicy {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  policyType  String   // CREATION, MODIFICATION, DELETION, QA_CONTROL, UPLOAD
+  
+  // 정책 규칙 (JSON)
+  rules       String   // JSON: { maxNotebooksPerUser, allowedFileTypes, maxFileSize, ... }
+  
+  // 범위
+  scope       String   @default("GLOBAL") // GLOBAL, ORGANIZATION, USER
+  scopeId     String?  // 조직 ID 또는 사용자 ID
+  
+  // Q&A 정책 상세
+  blockExternalKnowledge Boolean @default(false)  // 외부 지식 차단
+  requireCitation        Boolean @default(true)   // 근거 필수
+  allowedQuestionTypes   String  @default("[]")   // JSON: ["SUMMARY", "COMPARE", "EXPLAIN"]
+  maxContextTokens       Int     @default(4000)   // 컨텍스트 제한
+  systemPrompt           String? // 고정 시스템 프롬프트
+  
+  priority    Int      @default(0)  // 우선순위 (높을수록 우선)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 파이프라인 설정 (청킹/임베딩/색인)
+model PipelineConfig {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // 청킹 설정
+  chunkingStrategy  String @default("SENTENCE") // SENTENCE, PARAGRAPH, FIXED, SEMANTIC
+  chunkSize         Int    @default(512)
+  chunkOverlap      Int    @default(50)
+  
+  // 임베딩 설정
+  embeddingModel    String @default("text-embedding-ada-002")
+  embeddingDimension Int   @default(1536)
+  
+  // 색인 설정
+  indexType         String @default("HNSW") // HNSW, FLAT, IVF
+  indexParameters   String @default("{}") // JSON: { m: 16, efConstruction: 100 }
+  
+  // 적용 범위
+  scope       String   @default("GLOBAL") // GLOBAL, NOTEBOOK
+  notebookId  String?  // 노트북별 설정인 경우
+  
+  // 버전 관리
+  version     Int      @default(1)
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 노트북 예산/비용 관리
+model NotebookBudget {
+  id          String   @id @default(cuid())
+  notebookId  String?
+  orgId       String?  // 조직별 예산인 경우
+  userId      String?  // 사용자별 예산인 경우
+  
+  // 토큰 한도
+  tokenLimit      Int      @default(1000000)  // 월별 토큰 한도
+  tokenUsed       Int      @default(0)
+  
+  // 비용 한도
+  costLimit       Float    @default(100.0)    // 월별 비용 한도 (USD)
+  costUsed        Float    @default(0.0)
+  
+  // 임베딩 한도
+  embeddingLimit  Int      @default(100000)   // 월별 임베딩 문서 수
+  embeddingUsed   Int      @default(0)
+  
+  // GPU 우선순위
+  gpuPriority     Int      @default(5)        // 1-10 (높을수록 우선)
+  
+  // 캐시 정책
+  cacheEnabled    Boolean  @default(true)
+  cacheTTL        Int      @default(3600)     // 초 단위
+  
+  period          String   // YYYY-MM
+  alertThreshold  Int      @default(80)       // % (경고 임계값)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([notebookId, period])
+}
+
+// 노트북 템플릿
+model NotebookTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // 템플릿 내용
+  defaultScope      String  @default("PERSONAL")
+  defaultTags       String  @default("[]")  // JSON 배열
+  defaultPipelineId String?
+  defaultPolicyIds  String  @default("[]")  // JSON 배열
+  
+  // 초기 소스
+  initialSources    String  @default("[]")  // JSON: [{ type, title, content }]
+  
+  // 초기 질문 예시
+  sampleQuestions   String  @default("[]")  // JSON 배열
+  
+  // 분류
+  category    String?
+  tags        String  @default("[]")
+  
+  // 승인 상태
+  isApproved  Boolean  @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+  
+  createdBy   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Q&A 응답 로그 (품질 모니터링)
+model NotebookQALog {
+  id          String   @id @default(cuid())
+  notebookId  String
+  userId      String
+  
+  // 질문/응답
+  question    String
+  answer      String
+  
+  // 품질 지표
+  citationCount   Int      @default(0)   // 인용된 출처 수
+  citationRate    Float?                 // 근거율 (0.0-1.0)
+  responseTime    Int?                   // 응답 시간 (ms)
+  tokenUsed       Int      @default(0)   // 사용된 토큰
+  
+  // 자동 평가
+  autoScore       Float?                 // 자동 품질 점수
+  isEmptyResponse Boolean  @default(false) // 빈 응답 여부
+  
+  // 사용자 평가
+  userRating      Int?                   // 1-5
+  userFeedback    String?
+  
+  // 지식 부족 플래그
+  knowledgeGap    Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+}
+
+// 처리 작업 큐 (파이프라인 재처리용)
+model NotebookProcessingJob {
+  id          String   @id @default(cuid())
+  notebookId  String?
+  sourceId    String?
+  
+  jobType     String   // REINDEX, REPROCESS, EMBEDDING_UPDATE
+  status      String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  priority    Int      @default(5)
+  
+  // 진행 상황
+  progress    Int      @default(0)   // 0-100
+  totalItems  Int      @default(0)
+  processedItems Int   @default(0)
+  
+  // 에러 정보
+  errorMessage String?
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+  
+  // 스케줄링
+  scheduledAt DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

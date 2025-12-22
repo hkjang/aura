@@ -27,7 +27,8 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  BookOpen
+  BookOpen,
+  BookCopy
 } from "lucide-react";
 
 interface NavItem {
@@ -117,6 +118,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen?: boolean; s
       defaultExpanded: true,
       items: [
         { label: "지식 베이스", href: "/dashboard/knowledge", icon: Brain, description: "지식 베이스" },
+        { label: "노트북 관리", href: "/dashboard/admin/notebooks", icon: BookCopy, description: "노트북 관리자" },
         { label: "문서", href: "/dashboard/documents", icon: Files, description: "문서 관리" },
         { label: "플러그인", href: "/dashboard/plugins", icon: Puzzle, description: "플러그인" },
         { label: "거버넌스", href: "/dashboard/governance", icon: Shield, description: "거버넌스" },

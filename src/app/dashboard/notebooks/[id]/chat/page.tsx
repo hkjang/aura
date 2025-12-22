@@ -431,8 +431,7 @@ export default function NotebookChatPage() {
                   {suggestions.map((suggestion, i) => (
                     <Card
                       key={i}
-                      className="p-3"
-                      style={{ cursor: "pointer", border: "1px solid var(--border-color)" }}
+                      style={{ padding: "12px", cursor: "pointer", border: "1px solid var(--border-color)" }}
                       onClick={() => handleSubmit(suggestion)}
                     >
                       <p style={{ fontSize: "14px", color: "var(--text-primary)" }}>{suggestion}</p>
@@ -491,7 +490,7 @@ export default function NotebookChatPage() {
                       </div>
                     )}
 
-                    <Card className="p-4">
+                    <Card style={{ padding: "16px" }}>
                       <div
                         style={{
                           fontSize: "14px",
@@ -705,8 +704,8 @@ export default function NotebookChatPage() {
           onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
         >
           <Card
-            className="p-6"
             style={{
+              padding: "24px",
               maxWidth: "800px",
               width: "100%",
               maxHeight: "80vh",
