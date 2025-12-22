@@ -9,6 +9,8 @@ import {
   Send,
   Loader2,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   AlertTriangle,
   ExternalLink,
   Copy,
@@ -19,8 +21,14 @@ import {
   ThumbsUp,
   ThumbsDown,
   Settings,
+  Brain,
 } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface Citation {
   sourceId: string;
@@ -28,6 +36,19 @@ interface Citation {
   chunkId: string;
   content: string;
   score: number;
+}
+
+interface SourcePreview {
+  title: string;
+  content: string;
+  fileType?: string;
+  pdfBase64?: string;
+  elements?: Array<{
+    id: string;
+    text: string;
+    page: number;
+    coordinates?: { x: number; y: number; width: number; height: number };
+  }>;
 }
 
 interface Message {
@@ -57,7 +78,14 @@ export default function NotebookChatPage() {
   const [streaming, setStreaming] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
+  const [sourcePreview, setSourcePreview] = useState<SourcePreview | null>(null);
+  const [loadingSource, setLoadingSource] = useState(false);
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Model selection
+  const [models, setModels] = useState<Array<{id: string; name: string; provider: string; modelId: string}>>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -88,10 +116,31 @@ export default function NotebookChatPage() {
     }
   };
 
+  const fetchModels = async () => {
+    try {
+      const res = await fetch("/api/admin/models");
+      if (res.ok) {
+        const data = await res.json();
+        const activeModels = (data.models || []).filter((m: {isActive: boolean}) => m.isActive);
+        setModels(activeModels);
+        // Load saved model preference or use first model
+        const savedModelId = localStorage.getItem(`notebook-model-${notebookId}`);
+        if (savedModelId && activeModels.some((m: {id: string}) => m.id === savedModelId)) {
+          setSelectedModelId(savedModelId);
+        } else if (activeModels.length > 0) {
+          setSelectedModelId(activeModels[0].id);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (notebookId) {
       fetchNotebook();
       fetchSuggestions();
+      fetchModels();
       // Load chat history from localStorage
       const savedMessages = localStorage.getItem(`notebook-chat-${notebookId}`);
       if (savedMessages) {
@@ -152,12 +201,17 @@ export default function NotebookChatPage() {
     ]);
 
     try {
+      // Get selected model info
+      const selectedModel = models.find(m => m.id === selectedModelId);
+      
       const res = await fetch(`/api/notebooks/${notebookId}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: q,
           saveHistory: true,
+          model: selectedModel?.modelId,
+          provider: selectedModel?.provider,
         }),
       });
 
@@ -231,6 +285,45 @@ export default function NotebookChatPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Parse thinking/reasoning content from response
+  // Supports: <think>, <thinking>, <reasoning>, <thought>, <reflection>
+  // Also supports GPT-OSS Harmony format: <analysis>, <commentary>, <final>
+  const parseThinkingContent = (content: string): { thinking: string | null; answer: string } => {
+    // 1. Check for GPT-OSS Harmony format (analysis + commentary + final)
+    const analysisMatch = content.match(/<analysis>([\s\S]*?)<\/analysis>/i);
+    const commentaryMatch = content.match(/<commentary>([\s\S]*?)<\/commentary>/i);
+    const finalMatch = content.match(/<final>([\s\S]*?)<\/final>/i);
+    
+    if (analysisMatch || commentaryMatch) {
+      const thinkingParts: string[] = [];
+      if (analysisMatch) thinkingParts.push(`[분석]\n${analysisMatch[1].trim()}`);
+      if (commentaryMatch) thinkingParts.push(`[해설]\n${commentaryMatch[1].trim()}`);
+      
+      const thinking = thinkingParts.join('\n\n');
+      const answer = finalMatch ? finalMatch[1].trim() : content
+        .replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+        .replace(/<commentary>[\s\S]*?<\/commentary>/gi, '')
+        .replace(/<final>[\s\S]*?<\/final>/gi, '')
+        .trim();
+      
+      return { thinking: thinking || null, answer: answer || content };
+    }
+    
+    // 2. Check for standard reasoning tags
+    const thinkRegex = /<(think(?:ing)?|reason(?:ing)?|thought|reflection)>([\s\S]*?)<\/\1>/i;
+    const thinkMatch = content.match(thinkRegex);
+    if (thinkMatch) {
+      const thinking = thinkMatch[2].trim();
+      const answer = content.replace(thinkRegex, '').trim();
+      return { thinking, answer };
+    }
+    
+    return { thinking: null, answer: content };
+  };
+
+  // State for expanded thinking sections
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set());
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -365,14 +458,15 @@ export default function NotebookChatPage() {
                   <div
                     style={{
                       maxWidth: "80%",
-                      padding: "14px 18px",
-                      borderRadius: "18px 18px 4px 18px",
-                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                      color: "white",
-                      boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+                      padding: "16px 20px",
+                      borderRadius: "20px 20px 4px 20px",
+                      background: "linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%)",
+                      color: "#1e1b4b",
+                      boxShadow: "0 2px 12px rgba(99, 102, 241, 0.15)",
+                      border: "1px solid rgba(99, 102, 241, 0.2)",
                     }}
                   >
-                    <p style={{ fontSize: "15px", lineHeight: 1.6, whiteSpace: "pre-wrap", fontWeight: 500 }}>
+                    <p style={{ fontSize: "15px", lineHeight: 1.7, whiteSpace: "pre-wrap", fontWeight: 500 }}>
                       {message.content}
                     </p>
                   </div>
@@ -403,10 +497,122 @@ export default function NotebookChatPage() {
                           fontSize: "14px",
                           lineHeight: 1.7,
                           color: "var(--text-primary)",
-                          whiteSpace: "pre-wrap",
                         }}
+                        className="prose prose-sm max-w-none dark:prose-invert"
                       >
-                        {message.content || (
+                        {message.content ? (() => {
+                          const { thinking, answer } = parseThinkingContent(message.content);
+                          const isExpanded = expandedThinking.has(message.id);
+                          
+                          return (
+                            <>
+                              {/* Thinking Section */}
+                              {thinking && (
+                                <div style={{ marginBottom: "16px" }}>
+                                  <button
+                                    onClick={() => {
+                                      const newSet = new Set(expandedThinking);
+                                      if (isExpanded) {
+                                        newSet.delete(message.id);
+                                      } else {
+                                        newSet.add(message.id);
+                                      }
+                                      setExpandedThinking(newSet);
+                                    }}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                      padding: "8px 12px",
+                                      background: "linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)",
+                                      border: "1px solid rgba(139, 92, 246, 0.2)",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                      width: "100%",
+                                      fontSize: "13px",
+                                      fontWeight: 500,
+                                      color: "#8b5cf6",
+                                    }}
+                                  >
+                                    <Brain style={{ width: "16px", height: "16px" }} />
+                                    <span>추론 과정 {isExpanded ? "접기" : "보기"}</span>
+                                    {isExpanded ? (
+                                      <ChevronUp style={{ width: "16px", height: "16px", marginLeft: "auto" }} />
+                                    ) : (
+                                      <ChevronDown style={{ width: "16px", height: "16px", marginLeft: "auto" }} />
+                                    )}
+                                  </button>
+                                  
+                                  {isExpanded && (
+                                    <div
+                                      style={{
+                                        marginTop: "8px",
+                                        padding: "12px 16px",
+                                        background: "rgba(139, 92, 246, 0.05)",
+                                        border: "1px solid rgba(139, 92, 246, 0.1)",
+                                        borderRadius: "8px",
+                                        fontSize: "13px",
+                                        color: "var(--text-secondary)",
+                                        whiteSpace: "pre-wrap",
+                                        maxHeight: "300px",
+                                        overflow: "auto",
+                                      }}
+                                    >
+                                      {thinking}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Answer Section */}
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw]}
+                                components={{
+                                  p: ({children}) => <p style={{margin: "0.5em 0"}}>{children}</p>,
+                                  ul: ({children}) => <ul style={{margin: "0.5em 0", paddingLeft: "1.5em"}}>{children}</ul>,
+                                  ol: ({children}) => <ol style={{margin: "0.5em 0", paddingLeft: "1.5em"}}>{children}</ol>,
+                                  li: ({children}) => <li style={{margin: "0.25em 0"}}>{children}</li>,
+                                  code: ({inline, className, children, ...props}: {inline?: boolean; className?: string; children?: React.ReactNode}) => {
+                                    const match = /language-(\w+)/.exec(className || '');
+                                    return !inline && match ? (
+                                      <SyntaxHighlighter
+                                        style={oneDark}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        customStyle={{borderRadius: '8px', margin: '0.5em 0', fontSize: '13px'}}
+                                        {...props}
+                                      >
+                                        {String(children).replace(/\n$/, '')}
+                                      </SyntaxHighlighter>
+                                    ) : (
+                                      <code style={{background: "var(--bg-secondary)", padding: "0.1em 0.3em", borderRadius: "4px", fontSize: "0.9em"}} {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  },
+                                  pre: ({children}) => <>{children}</>,
+                                  h1: ({children}) => <h1 style={{fontSize: "1.5em", fontWeight: 600, margin: "0.5em 0"}}>{children}</h1>,
+                                  h2: ({children}) => <h2 style={{fontSize: "1.3em", fontWeight: 600, margin: "0.5em 0"}}>{children}</h2>,
+                                  h3: ({children}) => <h3 style={{fontSize: "1.1em", fontWeight: 600, margin: "0.5em 0"}}>{children}</h3>,
+                                  strong: ({children}) => <strong style={{fontWeight: 600}}>{children}</strong>,
+                                  table: ({children}) => (
+                                    <div style={{overflowX: "auto", margin: "1em 0"}}>
+                                      <table style={{borderCollapse: "collapse", width: "100%", fontSize: "13px"}}>{children}</table>
+                                    </div>
+                                  ),
+                                  thead: ({children}) => <thead style={{background: "var(--bg-secondary)"}}>{children}</thead>,
+                                  tbody: ({children}) => <tbody>{children}</tbody>,
+                                  tr: ({children}) => <tr style={{borderBottom: "1px solid var(--border-color)"}}>{children}</tr>,
+                                  th: ({children}) => <th style={{padding: "10px 12px", textAlign: "left", fontWeight: 600}}>{children}</th>,
+                                  td: ({children}) => <td style={{padding: "10px 12px"}}>{children}</td>,
+                                }}
+                              >
+                                {answer}
+                              </ReactMarkdown>
+                            </>
+                          );
+                        })() : (
                           <Loader2
                             style={{
                               width: "20px",
@@ -483,48 +689,228 @@ export default function NotebookChatPage() {
         )}
       </div>
 
-      {/* Citation Detail */}
+      {/* Citation Detail with Source Preview */}
       {selectedCitation && (
         <div
           style={{
             position: "fixed",
-            right: "24px",
-            bottom: "120px",
-            width: "360px",
-            zIndex: 100,
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
           }}
+          onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
         >
-          <Card className="p-4" style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-            <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", marginBottom: "12px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <FileText style={{ width: "16px", height: "16px", color: "var(--color-primary)" }} />
-                <span style={{ fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
-                  {selectedCitation.sourceTitle}
-                </span>
+          <Card
+            className="p-6"
+            style={{
+              maxWidth: "800px",
+              width: "100%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "10px",
+                    background: "var(--color-primary-light)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FileText style={{ width: "20px", height: "20px", color: "var(--color-primary)" }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {selectedCitation.sourceTitle}
+                  </h3>
+                  <p style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
+                    관련도: {Math.round(selectedCitation.score * 100)}%
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setSelectedCitation(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: "4px" }}
+                onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
+                style={{
+                  background: "var(--bg-secondary)",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8px",
+                  cursor: "pointer",
+                }}
               >
-                <ChevronLeft style={{ width: "16px", height: "16px", transform: "rotate(180deg)", color: "var(--text-tertiary)" }} />
+                ✕
               </button>
             </div>
-            <div
-              style={{
-                padding: "12px",
-                background: "var(--bg-secondary)",
-                borderRadius: "8px",
-                fontSize: "13px",
-                lineHeight: 1.6,
-                color: "var(--text-primary)",
-                maxHeight: "200px",
-                overflow: "auto",
-              }}
-            >
-              {selectedCitation.content}
+
+            {/* Citation Snippet */}
+            <div style={{ marginBottom: "16px" }}>
+              <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "8px" }}>
+                인용된 내용
+              </p>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  background: "rgba(124, 58, 237, 0.05)",
+                  borderLeft: "3px solid var(--color-primary)",
+                  borderRadius: "0 8px 8px 0",
+                  fontSize: "14px",
+                  lineHeight: 1.7,
+                  color: "var(--text-primary)",
+                }}
+              >
+                {selectedCitation.content}
+              </div>
             </div>
-            <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-tertiary)" }}>
-              관련도: {Math.round(selectedCitation.score * 100)}%
+
+            {/* Full Source Content */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)" }}>
+                  원문 전체 보기
+                </p>
+                {!sourcePreview && !loadingSource && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      setLoadingSource(true);
+                      try {
+                        const res = await fetch(`/api/notebooks/${notebookId}/sources/${selectedCitation.sourceId}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          const metadata = data.source.metadata ? JSON.parse(data.source.metadata) : {};
+                          setSourcePreview({ 
+                            title: data.source.title, 
+                            content: data.source.content,
+                            fileType: data.source.fileType,
+                            pdfBase64: metadata.pdfBase64,
+                            elements: metadata.elements,
+                          });
+                        }
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      setLoadingSource(false);
+                    }}
+                  >
+                    원문 불러오기
+                  </Button>
+                )}
+              </div>
+              {loadingSource ? (
+                <div style={{ padding: "24px", textAlign: "center" }}>
+                  <Loader2 style={{ width: "24px", height: "24px", color: "var(--color-primary)", animation: "spin 1s linear infinite" }} />
+                  <p style={{ marginTop: "8px", fontSize: "13px", color: "var(--text-secondary)" }}>문서를 불러오는 중...</p>
+                </div>
+              ) : sourcePreview ? (
+                <div>
+                  {/* PDF Viewer Option */}
+                  {sourcePreview.pdfBase64 && (
+                    <div style={{ marginBottom: "12px" }}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const pdfWindow = window.open();
+                          if (pdfWindow) {
+                            pdfWindow.document.write(`
+                              <html>
+                                <head><title>${sourcePreview.title}</title></head>
+                                <body style="margin:0;padding:0;">
+                                  <embed 
+                                    src="data:application/pdf;base64,${sourcePreview.pdfBase64}" 
+                                    type="application/pdf" 
+                                    width="100%" 
+                                    height="100%"
+                                    style="position:fixed;top:0;left:0;width:100%;height:100%;"
+                                  />
+                                </body>
+                              </html>
+                            `);
+                            pdfWindow.document.close();
+                          }
+                        }}
+                      >
+                        <ExternalLink style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+                        PDF 원본 보기
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Text Content with Citation Highlighted */}
+                  <div
+                    style={{
+                      padding: "16px",
+                      background: "var(--bg-secondary)",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      lineHeight: 1.8,
+                      color: "var(--text-primary)",
+                      maxHeight: "400px",
+                      overflow: "auto",
+                    }}
+                  >
+                    {/* Highlight the citation text with red border */}
+                    {(() => {
+                      const citationText = selectedCitation.content;
+                      const fullText = sourcePreview.content;
+                      
+                      // Find citation in source text
+                      const citationIndex = fullText.toLowerCase().indexOf(citationText.toLowerCase().substring(0, 50));
+                      
+                      if (citationIndex === -1) {
+                        return <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontFamily: "inherit" }}>{fullText}</pre>;
+                      }
+                      
+                      const beforeText = fullText.substring(0, citationIndex);
+                      const matchedText = fullText.substring(citationIndex, citationIndex + citationText.length);
+                      const afterText = fullText.substring(citationIndex + citationText.length);
+                      
+                      return (
+                        <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontFamily: "inherit" }}>
+                          {beforeText}
+                          <span 
+                            id="citation-highlight"
+                            style={{ 
+                              background: "rgba(239, 68, 68, 0.15)", 
+                              border: "2px solid #ef4444",
+                              borderRadius: "4px",
+                              padding: "2px 4px",
+                            }}
+                          >
+                            {matchedText}
+                          </span>
+                          {afterText}
+                        </pre>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: "16px",
+                    background: "var(--bg-secondary)",
+                    borderRadius: "8px",
+                    textAlign: "center",
+                    color: "var(--text-tertiary)",
+                    fontSize: "13px",
+                  }}
+                >
+                  "원문 불러오기" 버튼을 클릭하세요
+                </div>
+              )}
             </div>
           </Card>
         </div>
@@ -533,6 +919,39 @@ export default function NotebookChatPage() {
       {/* Input Area */}
       <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border-color)", background: "var(--bg-primary)" }}>
         <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+          {/* Model Selector */}
+          {models.length > 0 && (
+            <div style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Settings style={{ width: "14px", height: "14px", color: "var(--text-tertiary)" }} />
+              <select
+                value={selectedModelId}
+                onChange={(e) => {
+                  setSelectedModelId(e.target.value);
+                  localStorage.setItem(`notebook-model-${notebookId}`, e.target.value);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  background: "var(--bg-secondary)",
+                  color: "var(--text-primary)",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  minWidth: "200px",
+                }}
+              >
+                {models.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name} ({model.provider})
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>
+                AI 모델
+              </span>
+            </div>
+          )}
+          
           <div
             style={{
               display: "flex",

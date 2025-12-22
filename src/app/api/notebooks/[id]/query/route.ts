@@ -76,21 +76,45 @@ export async function POST(
       });
     }
 
+
     // Resolve model configuration
-    let providerId = (provider as AIProviderId) || "openai";
+    let providerId = provider as AIProviderId;
     let modelId = model;
     let baseUrl: string | undefined;
     let apiKey: string | undefined;
 
-    // Check DB for model config
+    // If no model specified, get default from SystemConfig
+    if (!modelId || modelId === "gpt-3.5-turbo") {
+      const systemConfigs = await prisma.systemConfig.findMany({
+        where: { key: { in: ["AI_PROVIDER", "AI_MODEL", "AI_BASE_URL", "AI_API_KEY", "OPENAI_API_KEY", "OLLAMA_BASE_URL"] } },
+      });
+      
+      const configMap = new Map<string, string>(
+        systemConfigs.map((c: { key: string; value: string }) => [c.key, c.value])
+      );
+      
+      const defaultProvider = configMap.get("AI_PROVIDER");
+      const defaultModel = configMap.get("AI_MODEL");
+      
+      if (defaultProvider && defaultModel) {
+        providerId = defaultProvider as AIProviderId;
+        modelId = defaultModel;
+        baseUrl = (configMap.get("AI_BASE_URL") || configMap.get("OLLAMA_BASE_URL")) as string | undefined;
+        apiKey = (configMap.get("AI_API_KEY") || configMap.get("OPENAI_API_KEY")) as string | undefined;
+        
+        console.log("[Query] Using default AI model from SystemConfig:", providerId, modelId);
+      }
+    }
+
+    // Check DB for specific model config
     const modelConfig = await prisma.modelConfig.findFirst({
       where: { modelId, isActive: true },
     });
 
     if (modelConfig) {
       providerId = (modelConfig.provider as AIProviderId) || providerId;
-      baseUrl = modelConfig.baseUrl || undefined;
-      apiKey = modelConfig.apiKey || undefined;
+      baseUrl = modelConfig.baseUrl || baseUrl;
+      apiKey = modelConfig.apiKey || apiKey;
     }
 
     // Provider defaults
@@ -110,7 +134,11 @@ export async function POST(
       apiKey,
     };
 
-    const languageModel = AIProviderFactory.createModel(config);
+    // Check if this is a reasoning model (GPT-OSS)
+    const isReasoningModel = modelId.toLowerCase().includes('gpt-oss') || modelId.toLowerCase().includes('deepseek-r1');
+    console.log("[Query] isReasoningModel:", isReasoningModel);
+
+    const languageModel = AIProviderFactory.createModel(config, isReasoningModel);
 
     // Stream the response
     const result = await streamText({
@@ -128,10 +156,17 @@ export async function POST(
     const customStream = new ReadableStream({
       async start(controller) {
         try {
+          console.log("[Query] Starting stream, context length:", context.context?.length || 0);
+          console.log("[Query] System prompt length:", systemPrompt?.length || 0);
+          
+          let chunkCount = 0;
           for await (const chunk of result.textStream) {
             controller.enqueue(encoder.encode(chunk));
             fullAnswer += chunk;
+            chunkCount++;
           }
+          
+          console.log("[Query] Stream complete, chunks:", chunkCount, "answer length:", fullAnswer.length);
 
           // Append citations as metadata
           const metadata = {

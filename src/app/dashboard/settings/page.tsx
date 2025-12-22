@@ -140,11 +140,40 @@ function ModelSettingsTab() {
                 background: editingId === m.id ? 'var(--bg-tertiary)' : 'var(--bg-secondary)', 
                 border: editingId === m.id ? '1px solid var(--color-primary)' : '1px solid var(--border-color)', 
                 borderRadius: 'var(--radius-lg)',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                opacity: m.isActive ? 1 : 0.6,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</span>
+                    <span style={{ 
+                      padding: '2px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '11px', 
+                      fontWeight: 500,
+                      background: m.isActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(156, 163, 175, 0.15)',
+                      color: m.isActive ? '#22c55e' : '#9ca3af',
+                    }}>
+                      {m.isActive ? '활성' : '비활성'}
+                    </span>
+                  </div>
                   <div style={{ display: 'flex', gap: '4px' }}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={async () => {
+                        await fetch(`/api/admin/models/${m.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ isActive: !m.isActive }),
+                        });
+                        fetchModels();
+                      }} 
+                      style={{ color: m.isActive ? '#22c55e' : 'var(--text-secondary)' }}
+                      title={m.isActive ? '비활성화' : '활성화'}
+                    >
+                      <Check style={{ width: '14px', height: '14px' }} />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(m)} style={{ color: 'var(--text-secondary)' }}>
                       <Settings style={{ width: '14px', height: '14px' }} />
                     </Button>
@@ -764,7 +793,7 @@ function EmbeddingSettingsTab() {
   const EMBEDDING_PROVIDERS = [
     { id: 'upstage', name: 'Upstage Solar', models: ['solar-embedding-1-large', 'solar-embedding-1-small'] },
     { id: 'openai', name: 'OpenAI', models: ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'] },
-    { id: 'ollama', name: 'Ollama (로컬)', models: ['nomic-embed-text', 'all-minilm', 'mxbai-embed-large'] },
+    { id: 'ollama', name: 'Ollama (로컬)', models: ['bge-m3', 'nomic-embed-text', 'all-minilm', 'mxbai-embed-large'] },
     { id: 'huggingface', name: 'HuggingFace', models: ['BAAI/bge-m3', 'sentence-transformers/all-MiniLM-L6-v2'] },
   ];
 

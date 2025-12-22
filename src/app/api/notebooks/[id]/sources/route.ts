@@ -118,6 +118,8 @@ async function handleFileUpload(req: Request, notebookId: string, userId: string
   // Read file content
   const buffer = await file.arrayBuffer();
   let content: string;
+  let pdfBase64: string | null = null;
+  let elementsJson: string | null = null;
 
   const fileType = file.type || "";
   const fileName = file.name;
@@ -126,14 +128,19 @@ async function handleFileUpload(req: Request, notebookId: string, userId: string
   if (fileType === "text/plain" || fileName.endsWith(".txt") || fileName.endsWith(".md")) {
     content = new TextDecoder("utf-8").decode(buffer);
   } else if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
-    // For PDF, try Upstage or store placeholder
-    content = await parseWithUpstage(file);
+    // For PDF, store base64 of original file and parse with Upstage
+    pdfBase64 = Buffer.from(buffer).toString("base64");
+    const parsed = await parseWithUpstage(file);
+    content = parsed.text;
+    elementsJson = JSON.stringify(parsed.elements);
   } else if (
     fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     fileName.endsWith(".docx")
   ) {
-    // For DOCX, try Upstage or mammoth
-    content = await parseWithUpstage(file);
+    // For DOCX, try Upstage
+    const parsed = await parseWithUpstage(file);
+    content = parsed.text;
+    elementsJson = JSON.stringify(parsed.elements);
   } else {
     throw new Error(`지원하지 않는 파일 형식입니다: ${fileType || fileName}`);
   }
@@ -156,6 +163,8 @@ async function handleFileUpload(req: Request, notebookId: string, userId: string
       status: "PENDING",
       metadata: JSON.stringify({
         uploadedAt: new Date().toISOString(),
+        pdfBase64: pdfBase64,
+        elements: elementsJson ? JSON.parse(elementsJson) : null,
       }),
     },
   });
@@ -255,7 +264,20 @@ async function handleJsonSource(
 }
 
 // Parse file with Upstage Document AI
-async function parseWithUpstage(file: File): Promise<string> {
+interface UpstageElement {
+  id: string;
+  category: string;
+  text: string;
+  page: number;
+  coordinates?: { x: number; y: number; width: number; height: number };
+}
+
+interface UpstageParseResult {
+  text: string;
+  elements: UpstageElement[];
+}
+
+async function parseWithUpstage(file: File): Promise<UpstageParseResult> {
   const upstageKey = process.env.UPSTAGE_API_KEY;
   
   if (!upstageKey) {
@@ -271,12 +293,14 @@ async function parseWithUpstage(file: File): Promise<string> {
 
   const formData = new FormData();
   formData.append("document", file);
-  formData.append("output_formats", JSON.stringify(["text"]));
+  formData.append("model", "document-parse");  // Required model parameter
+  formData.append("coordinates", "true");  // Request coordinates
 
   const apiKey = upstageKey || (await prisma.systemConfig.findUnique({
     where: { key: "UPSTAGE_API_KEY" },
   }))?.value;
 
+  // Use document-digitization endpoint as configured
   const response = await fetch("https://api.upstage.ai/v1/document-digitization", {
     method: "POST",
     headers: {
@@ -292,7 +316,71 @@ async function parseWithUpstage(file: File): Promise<string> {
   }
 
   const result = await response.json();
-  return result.content?.text || result.content?.markdown || result.text || "";
+  
+  // Extract elements with coordinates
+  const elements: UpstageElement[] = [];
+  
+  // Parse elements from the response (Upstage returns elements array)
+  if (result.elements && Array.isArray(result.elements)) {
+    for (const el of result.elements) {
+      elements.push({
+        id: el.id || String(elements.length),
+        category: el.category || "text",
+        text: el.text || el.content || "",
+        page: el.page || 1,
+        coordinates: el.bounding_box ? {
+          x: el.bounding_box.x || el.bounding_box[0] || 0,
+          y: el.bounding_box.y || el.bounding_box[1] || 0,
+          width: el.bounding_box.width || (el.bounding_box[2] - el.bounding_box[0]) || 0,
+          height: el.bounding_box.height || (el.bounding_box[3] - el.bounding_box[1]) || 0,
+        } : undefined,
+      });
+    }
+  }
+  
+  // Extract text content, prioritizing plain text over HTML
+  let content = result.content?.text || result.text || "";
+  
+  // If we got HTML instead, strip the tags to get plain text
+  if (!content && result.content?.html) {
+    content = result.content.html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/h[1-6]>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  
+  // If still no content, try html field at root level
+  if (!content && result.html) {
+    content = result.html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/h[1-6]>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  
+  // If no text from content extraction, combine element texts
+  if (!content && elements.length > 0) {
+    content = elements.map(el => el.text).join("\n\n");
+  }
+  
+  return {
+    text: content || "",
+    elements,
+  };
 }
 
 // Fetch URL content

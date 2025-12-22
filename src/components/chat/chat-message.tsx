@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check, ExternalLink } from "lucide-react";
+import { Bot, User, ThumbsUp, ThumbsDown, Copy, Check, ExternalLink, Brain, ChevronDown, ChevronUp } from "lucide-react";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { ConfidenceBar } from "./confidence-bar";
 
@@ -29,6 +29,42 @@ interface ChatMessageProps {
   showConfidence?: boolean;
 }
 
+// Parse thinking/reasoning content from response
+// Supports: <think>, <thinking>, <reasoning>, <thought>, <reflection>
+// Also supports GPT-OSS Harmony format: <analysis>, <commentary>, <final>
+const parseThinkingContent = (content: string): { thinking: string | null; answer: string } => {
+  // 1. Check for GPT-OSS Harmony format (analysis + commentary + final)
+  const analysisMatch = content.match(/<analysis>([\s\S]*?)<\/analysis>/i);
+  const commentaryMatch = content.match(/<commentary>([\s\S]*?)<\/commentary>/i);
+  const finalMatch = content.match(/<final>([\s\S]*?)<\/final>/i);
+  
+  if (analysisMatch || commentaryMatch) {
+    const thinkingParts: string[] = [];
+    if (analysisMatch) thinkingParts.push(`[분석]\n${analysisMatch[1].trim()}`);
+    if (commentaryMatch) thinkingParts.push(`[해설]\n${commentaryMatch[1].trim()}`);
+    
+    const thinking = thinkingParts.join('\n\n');
+    const answer = finalMatch ? finalMatch[1].trim() : content
+      .replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+      .replace(/<commentary>[\s\S]*?<\/commentary>/gi, '')
+      .replace(/<final>[\s\S]*?<\/final>/gi, '')
+      .trim();
+    
+    return { thinking: thinking || null, answer: answer || content };
+  }
+  
+  // 2. Check for standard reasoning tags
+  const thinkRegex = /<(think(?:ing)?|reason(?:ing)?|thought|reflection)>([\s\S]*?)<\/\1>/i;
+  const thinkMatch = content.match(thinkRegex);
+  if (thinkMatch) {
+    const thinking = thinkMatch[2].trim();
+    const answer = content.replace(thinkRegex, '').trim();
+    return { thinking, answer };
+  }
+  
+  return { thinking: null, answer: content };
+};
+
 export function ChatMessage({ message, isPinned = false, onPin, showConfidence = true }: ChatMessageProps) {
   const isUser = message.role === "user";
   const [feedback, setFeedback] = useState<number | null>(null);
@@ -37,6 +73,7 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
   const [pendingRating, setPendingRating] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [feedbackSaved, setFeedbackSaved] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -84,6 +121,9 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
     }
   };
 
+  // Parse thinking content for AI messages
+  const { thinking, answer } = !isUser ? parseThinkingContent(message.content) : { thinking: null, answer: message.content };
+
   return (
     <div style={{
       display: 'flex',
@@ -120,6 +160,56 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
           {isUser ? "You" : "Aura AI"}
         </div>
 
+        {/* Thinking Section for AI */}
+        {!isUser && thinking && (
+          <div style={{ marginBottom: '16px' }}>
+            <button
+              onClick={() => setShowThinking(!showThinking)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#8b5cf6',
+              }}
+            >
+              <Brain style={{ width: '16px', height: '16px' }} />
+              <span>추론 과정 {showThinking ? '접기' : '보기'}</span>
+              {showThinking ? (
+                <ChevronUp style={{ width: '16px', height: '16px', marginLeft: 'auto' }} />
+              ) : (
+                <ChevronDown style={{ width: '16px', height: '16px', marginLeft: 'auto' }} />
+              )}
+            </button>
+            
+            {showThinking && (
+              <div
+                style={{
+                  marginTop: '8px',
+                  padding: '12px 16px',
+                  background: 'rgba(139, 92, 246, 0.05)',
+                  border: '1px solid rgba(139, 92, 246, 0.1)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: '300px',
+                  overflow: 'auto',
+                }}
+              >
+                {thinking}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Message Content */}
         <div style={{
           fontSize: '15px',
@@ -129,7 +219,7 @@ export function ChatMessage({ message, isPinned = false, onPin, showConfidence =
           {isUser ? (
             <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
           ) : (
-            <MarkdownRenderer content={message.content} />
+            <MarkdownRenderer content={answer} />
           )}
         </div>
 

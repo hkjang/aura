@@ -125,6 +125,10 @@ export default function ChatInterface() {
   // Local input state for controlled input
   const [inputValue, setInputValue] = useState("");
   
+  // Reasoning effort for GPT-OSS models
+  const [reasoningEffort, setReasoningEffort] = useState<'low' | 'medium' | 'high'>('medium');
+  const isReasoningModel = selectedModel.toLowerCase().includes('gpt-oss') || selectedModel.toLowerCase().includes('deepseek-r1');
+  
   // Chat state
   const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; tokensIn?: number; tokensOut?: number }>>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -209,7 +213,8 @@ export default function ChatInterface() {
           messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
           model: selectedModel,
           provider: currentProvider,
-          systemPrompt
+          systemPrompt,
+          ...(isReasoningModel && { reasoningEffort })
         }),
         signal: abortControllerRef.current.signal
       });
@@ -569,6 +574,28 @@ export default function ChatInterface() {
               }}
               models={availableModels.length > 0 ? availableModels : undefined}
             />
+            
+            {/* Reasoning Effort Selector for GPT-OSS */}
+            {isReasoningModel && (
+              <select
+                value={reasoningEffort}
+                onChange={(e) => setReasoningEffort(e.target.value as 'low' | 'medium' | 'high')}
+                style={{
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  color: 'var(--text-primary)',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="low">🧠 추론: 낮음</option>
+                <option value="medium">🧠 추론: 중간</option>
+                <option value="high">🧠 추론: 높음</option>
+              </select>
+            )}
             
             <button
               type="button"

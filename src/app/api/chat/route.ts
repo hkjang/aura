@@ -12,8 +12,8 @@ import { DeploymentService } from "@/lib/mlops/deployment-service"; // NEW IMPOR
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  const { messages, provider, model, systemPrompt } = await req.json();
-  console.log("DEBUG: POST /api/chat", { provider, model, messagesLength: messages?.length, hasSystemPrompt: !!systemPrompt });
+  const { messages, provider, model, systemPrompt, reasoningEffort } = await req.json();
+  console.log("DEBUG: POST /api/chat", { provider, model, messagesLength: messages?.length, hasSystemPrompt: !!systemPrompt, reasoningEffort });
 
   // 0. FETCH USER (Fixes Foreign Key Issue)
   // In a real app, this comes from auth session.
@@ -128,7 +128,11 @@ export async function POST(req: Request) {
   console.log("DEBUG: Constructed AI Config:", { ...config, apiKey: apiKey ? '***' : undefined });
 
   try {
-    const languageModel = AIProviderFactory.createModel(config);
+    // Check if this is a reasoning model (GPT-OSS) 
+    const isReasoningModel = modelId.toLowerCase().includes('gpt-oss') || modelId.toLowerCase().includes('deepseek-r1');
+    console.log("DEBUG: isReasoningModel:", isReasoningModel, "reasoningEffort:", reasoningEffort);
+
+    const languageModel = AIProviderFactory.createModel(config, isReasoningModel, reasoningEffort || 'medium');
 
     // 1. Fetch enabled tools from DB
     const toolConfigs = await prisma.toolConfig.findMany({
@@ -156,17 +160,48 @@ export async function POST(req: Request) {
       tools: supportsTools ? activeTools : undefined,
     });
 
-    // Create custom stream that appends usage data at the end
+    // Create custom stream that captures reasoning and appends usage data
     const encoder = new TextEncoder();
     
     const customStream = new ReadableStream({
       async start(controller) {
         let promptTokens = 0;
         let completionTokens = 0;
+        let reasoningContent = '';
+        let hasStartedContent = false;
         
-        // Stream the text content
-        for await (const chunk of result.textStream) {
-          controller.enqueue(encoder.encode(chunk));
+        // Stream using fullStream to capture reasoning
+        for await (const part of result.fullStream) {
+          // Debug: log all part types
+          console.log("[Stream] Part type:", part.type, "keys:", Object.keys(part));
+          
+          if (part.type === 'reasoning-delta') {
+            // Capture reasoning content
+            reasoningContent += part.text;
+            console.log("[Stream] Reasoning delta:", part.text?.substring(0, 50));
+          } else if (part.type === 'text-delta') {
+            // Debug: check providerMetadata for reasoning
+            const pm = (part as any).providerMetadata;
+            if (pm) {
+              console.log("[Stream] providerMetadata:", JSON.stringify(pm).substring(0, 200));
+            }
+            
+            // If we have reasoning and haven't sent it yet, prepend as think tag
+            if (reasoningContent && !hasStartedContent) {
+              const reasoningTag = `<think>${reasoningContent}</think>\n\n`;
+              controller.enqueue(encoder.encode(reasoningTag));
+              hasStartedContent = true;
+            }
+            // Stream regular content
+            controller.enqueue(encoder.encode(part.text));
+            if (!reasoningContent) hasStartedContent = true;
+          }
+        }
+        
+        // If no regular content was streamed but we have reasoning, send it
+        if (reasoningContent && !hasStartedContent) {
+          const reasoningTag = `<think>${reasoningContent}</think>\n\n`;
+          controller.enqueue(encoder.encode(reasoningTag));
         }
         
         // Get usage from the result (after streaming completes)
