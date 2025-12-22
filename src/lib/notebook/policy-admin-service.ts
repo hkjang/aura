@@ -253,6 +253,72 @@ export class PolicyAdminService {
   }
 
   /**
+   * Check if file can be uploaded (file size, type, sources per notebook)
+   */
+  static async canUploadFile(
+    notebookId: string,
+    userId: string,
+    file: { size: number; type: string; name: string }
+  ): Promise<{
+    allowed: boolean;
+    reason?: string;
+  }> {
+    const policy = await this.getActivePolicy("UPLOAD", userId);
+
+    if (!policy) {
+      return { allowed: true };
+    }
+
+    let rules: PolicyRules = {};
+    try {
+      rules = JSON.parse(policy.rules);
+    } catch {
+      return { allowed: true };
+    }
+
+    // Check file size
+    if (rules.maxFileSize && file.size > rules.maxFileSize) {
+      const maxMB = Math.round(rules.maxFileSize / (1024 * 1024));
+      const fileMB = Math.round(file.size / (1024 * 1024) * 10) / 10;
+      return {
+        allowed: false,
+        reason: `파일 크기 제한 초과 (${fileMB}MB / 최대 ${maxMB}MB)`,
+      };
+    }
+
+    // Check file type
+    if (rules.allowedFileTypes && rules.allowedFileTypes.length > 0) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const allowed = rules.allowedFileTypes.some(t => 
+        t.toLowerCase() === ext || 
+        t.toLowerCase() === file.type.toLowerCase()
+      );
+      if (!allowed) {
+        return {
+          allowed: false,
+          reason: `허용되지 않는 파일 형식입니다. 허용: ${rules.allowedFileTypes.join(', ')}`,
+        };
+      }
+    }
+
+    // Check max sources per notebook
+    if (rules.maxSourcesPerNotebook) {
+      const count = await prisma.knowledgeSource.count({
+        where: { notebookId },
+      });
+
+      if (count >= rules.maxSourcesPerNotebook) {
+        return {
+          allowed: false,
+          reason: `노트북당 소스 수 제한 초과 (${count}/${rules.maxSourcesPerNotebook})`,
+        };
+      }
+    }
+
+    return { allowed: true };
+  }
+
+  /**
    * Get policy by ID
    */
   static async getPolicyById(id: string) {

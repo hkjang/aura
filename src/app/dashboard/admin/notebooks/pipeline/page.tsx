@@ -19,6 +19,7 @@ import {
   Layers,
   Zap,
   Database,
+  Edit2,
 } from "lucide-react";
 
 interface PipelineConfig {
@@ -82,6 +83,7 @@ export default function AdminPipelinePage() {
   const [jobs, setJobs] = useState<ProcessingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"configs" | "jobs">("configs");
 
   const [formData, setFormData] = useState({
@@ -96,12 +98,156 @@ export default function AdminPipelinePage() {
     isDefault: false,
   });
 
+  // Mock data for demonstration
+  const mockConfigs: PipelineConfig[] = [
+    {
+      id: "config-1",
+      name: "기본 문서 처리 설정",
+      description: "PDF, DOCX 등 일반 문서에 최적화된 기본 설정입니다.",
+      chunkingStrategy: "SENTENCE",
+      chunkSize: 512,
+      chunkOverlap: 50,
+      embeddingModel: "text-embedding-3-small",
+      embeddingDimension: 1536,
+      indexType: "HNSW",
+      indexParameters: JSON.stringify({ efConstruction: 200, M: 16 }),
+      scope: "GLOBAL",
+      notebookId: null,
+      version: 3,
+      isDefault: true,
+      isActive: true,
+      createdAt: "2024-01-10T08:00:00Z",
+      updatedAt: "2024-12-15T10:30:00Z",
+    },
+    {
+      id: "config-2",
+      name: "대용량 기술 문서 설정",
+      description: "기술 매뉴얼, API 문서 등 대용량 기술 문서에 최적화된 설정입니다.",
+      chunkingStrategy: "PARAGRAPH",
+      chunkSize: 1024,
+      chunkOverlap: 100,
+      embeddingModel: "text-embedding-3-large",
+      embeddingDimension: 3072,
+      indexType: "HNSW",
+      indexParameters: JSON.stringify({ efConstruction: 400, M: 32 }),
+      scope: "GLOBAL",
+      notebookId: null,
+      version: 2,
+      isDefault: false,
+      isActive: true,
+      createdAt: "2024-03-20T14:00:00Z",
+      updatedAt: "2024-11-28T16:45:00Z",
+    },
+    {
+      id: "config-3",
+      name: "코드 분석 설정",
+      description: "소스코드 파일 분석에 최적화된 의미 기반 청킹 설정입니다.",
+      chunkingStrategy: "SEMANTIC",
+      chunkSize: 768,
+      chunkOverlap: 128,
+      embeddingModel: "text-embedding-3-small",
+      embeddingDimension: 1536,
+      indexType: "HNSW",
+      indexParameters: JSON.stringify({ efConstruction: 200, M: 16 }),
+      scope: "GLOBAL",
+      notebookId: null,
+      version: 1,
+      isDefault: false,
+      isActive: true,
+      createdAt: "2024-06-15T09:30:00Z",
+      updatedAt: "2024-10-20T11:00:00Z",
+    },
+  ];
+
+  const mockJobs: ProcessingJob[] = [
+    {
+      id: "job-1",
+      notebookId: "notebook-001",
+      sourceId: "source-001",
+      jobType: "EMBEDDING",
+      status: "COMPLETED",
+      priority: 1,
+      progress: 100,
+      totalItems: 156,
+      processedItems: 156,
+      errorMessage: null,
+      retryCount: 0,
+      createdAt: "2024-12-20T10:00:00Z",
+      startedAt: "2024-12-20T10:00:15Z",
+      completedAt: "2024-12-20T10:02:30Z",
+    },
+    {
+      id: "job-2",
+      notebookId: "notebook-002",
+      sourceId: "source-005",
+      jobType: "CHUNKING",
+      status: "PROCESSING",
+      priority: 1,
+      progress: 65,
+      totalItems: 89,
+      processedItems: 58,
+      errorMessage: null,
+      retryCount: 0,
+      createdAt: "2024-12-23T05:45:00Z",
+      startedAt: "2024-12-23T05:45:10Z",
+      completedAt: null,
+    },
+    {
+      id: "job-3",
+      notebookId: "notebook-003",
+      sourceId: "source-012",
+      jobType: "REINDEX",
+      status: "PENDING",
+      priority: 2,
+      progress: 0,
+      totalItems: 234,
+      processedItems: 0,
+      errorMessage: null,
+      retryCount: 0,
+      createdAt: "2024-12-23T05:48:00Z",
+      startedAt: null,
+      completedAt: null,
+    },
+    {
+      id: "job-4",
+      notebookId: "notebook-001",
+      sourceId: "source-003",
+      jobType: "EMBEDDING",
+      status: "FAILED",
+      priority: 1,
+      progress: 45,
+      totalItems: 78,
+      processedItems: 35,
+      errorMessage: "OpenAI API rate limit exceeded. Please retry after 60 seconds.",
+      retryCount: 2,
+      createdAt: "2024-12-22T18:30:00Z",
+      startedAt: "2024-12-22T18:30:05Z",
+      completedAt: null,
+    },
+    {
+      id: "job-5",
+      notebookId: "notebook-005",
+      sourceId: "source-018",
+      jobType: "CHUNKING",
+      status: "COMPLETED",
+      priority: 1,
+      progress: 100,
+      totalItems: 45,
+      processedItems: 45,
+      errorMessage: null,
+      retryCount: 0,
+      createdAt: "2024-12-22T14:00:00Z",
+      startedAt: "2024-12-22T14:00:08Z",
+      completedAt: "2024-12-22T14:01:45Z",
+    },
+  ];
+
   const fetchConfigs = async () => {
     try {
       const res = await fetch("/api/admin/notebooks/pipeline?type=configs");
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setConfigs(data.configs);
+      setConfigs(data.configs || []);
     } catch (error) {
       console.error("Failed to fetch configs:", error);
     }
@@ -112,7 +258,7 @@ export default function AdminPipelinePage() {
       const res = await fetch("/api/admin/notebooks/pipeline?type=jobs");
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setJobs(data.jobs);
+      setJobs(data.jobs || []);
     } catch (error) {
       console.error("Failed to fetch jobs:", error);
     }
@@ -168,6 +314,40 @@ export default function AdminPipelinePage() {
     }
   };
 
+  const handleEdit = (config: PipelineConfig) => {
+    setEditingId(config.id);
+    setCreating(true);
+    setFormData({
+      name: config.name,
+      description: config.description || "",
+      chunkingStrategy: config.chunkingStrategy,
+      chunkSize: config.chunkSize,
+      chunkOverlap: config.chunkOverlap,
+      embeddingModel: config.embeddingModel,
+      embeddingDimension: config.embeddingDimension,
+      indexType: config.indexType,
+      isDefault: config.isDefault,
+    });
+  };
+
+  const handleUpdateConfig = async () => {
+    if (!editingId) return;
+    
+    try {
+      await fetch("/api/admin/notebooks/pipeline", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configId: editingId, ...formData }),
+      });
+      setCreating(false);
+      setEditingId(null);
+      resetForm();
+      await fetchConfigs();
+    } catch (error) {
+      console.error("Update failed:", error);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -180,6 +360,7 @@ export default function AdminPipelinePage() {
       indexType: "HNSW",
       isDefault: false,
     });
+    setEditingId(null);
   };
 
   const getJobStatusBadge = (status: string) => {
@@ -300,7 +481,7 @@ export default function AdminPipelinePage() {
           {creating && (
             <Card style={{ padding: "24px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)" }}>새 파이프라인 설정</h2>
+                <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)" }}>{editingId ? "파이프라인 설정 수정" : "새 파이프라인 설정"}</h2>
                 <Button variant="ghost" size="sm" onClick={() => { setCreating(false); resetForm(); }}>
                   <X style={{ width: "16px", height: "16px" }} />
                 </Button>
@@ -384,9 +565,9 @@ export default function AdminPipelinePage() {
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
                   <Button variant="outline" onClick={() => { setCreating(false); resetForm(); }}>취소</Button>
-                  <Button onClick={handleCreateConfig} disabled={!formData.name}>
+                  <Button onClick={editingId ? handleUpdateConfig : handleCreateConfig} disabled={!formData.name}>
                     <Save style={{ width: "16px", height: "16px", marginRight: "8px" }} />
-                    저장
+                    {editingId ? "수정" : "저장"}
                   </Button>
                 </div>
               </div>
@@ -416,6 +597,11 @@ export default function AdminPipelinePage() {
                       <span>임베딩: {config.embeddingModel}</span>
                       <span>색인: {config.indexType}</span>
                     </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <Button size="sm" variant="ghost" onClick={() => handleEdit(config)} title="수정">
+                      <Edit2 style={{ width: "16px", height: "16px" }} />
+                    </Button>
                   </div>
                 </div>
               </Card>

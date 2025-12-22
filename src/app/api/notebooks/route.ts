@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NotebookService } from "@/lib/notebook/notebook-service";
+import { PolicyAdminService } from "@/lib/notebook/policy-admin-service";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,15 @@ export async function POST(req: Request) {
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 정책 검사: 노트북 생성 가능 여부 확인
+    const canCreate = await PolicyAdminService.canCreateNotebook(userId);
+    if (!canCreate.allowed) {
+      return NextResponse.json(
+        { error: canCreate.reason || "노트북 생성이 제한되었습니다." },
+        { status: 403 }
+      );
     }
 
     const body = await req.json();

@@ -15,6 +15,7 @@ import {
   XCircle,
   Save,
   X,
+  Edit2,
 } from "lucide-react";
 
 interface Policy {
@@ -56,6 +57,7 @@ export default function AdminPoliciesPage() {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   const [formData, setFormData] = useState({
@@ -79,7 +81,7 @@ export default function AdminPoliciesPage() {
       const res = await fetch(`/api/admin/notebooks/policies?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setPolicies(data.policies);
+      setPolicies(data.policies || []);
     } catch (error) {
       console.error("Failed to fetch policies:", error);
     } finally {
@@ -112,6 +114,50 @@ export default function AdminPoliciesPage() {
       await fetchPolicies();
     } catch (error) {
       console.error("Create failed:", error);
+    }
+  };
+
+  const handleEdit = (policy: Policy) => {
+    setEditingId(policy.id);
+    setCreating(true);
+    setFormData({
+      name: policy.name,
+      description: policy.description || "",
+      policyType: policy.policyType,
+      rules: policy.rules,
+      scope: policy.scope,
+      priority: policy.priority,
+      blockExternalKnowledge: policy.blockExternalKnowledge,
+      requireCitation: policy.requireCitation,
+      maxContextTokens: policy.maxContextTokens,
+      systemPrompt: policy.systemPrompt || "",
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId) return;
+    
+    try {
+      let rules = {};
+      try {
+        rules = JSON.parse(formData.rules);
+      } catch {
+        alert("규칙 JSON 형식이 올바르지 않습니다");
+        return;
+      }
+
+      await fetch("/api/admin/notebooks/policies", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, ...formData, rules }),
+      });
+
+      setCreating(false);
+      setEditingId(null);
+      resetForm();
+      await fetchPolicies();
+    } catch (error) {
+      console.error("Update failed:", error);
     }
   };
 
@@ -152,6 +198,7 @@ export default function AdminPoliciesPage() {
       maxContextTokens: 4000,
       systemPrompt: "",
     });
+    setEditingId(null);
   };
 
   const getPolicyTypeBadge = (type: string) => {
@@ -233,7 +280,7 @@ export default function AdminPoliciesPage() {
       {creating && (
         <Card style={{ padding: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)" }}>새 정책 만들기</h2>
+            <h2 style={{ fontSize: "18px", fontWeight: 600, color: "var(--text-primary)" }}>{editingId ? "정책 수정" : "새 정책 만들기"}</h2>
             <Button variant="ghost" size="sm" onClick={() => { setCreating(false); resetForm(); }}>
               <X style={{ width: "16px", height: "16px" }} />
             </Button>
@@ -257,6 +304,33 @@ export default function AdminPoliciesPage() {
             <div style={{ gridColumn: "span 2" }}>
               <label style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>규칙 (JSON)</label>
               <textarea value={formData.rules} onChange={(e) => setFormData({ ...formData, rules: e.target.value })} placeholder='{"maxNotebooksPerUser": 10}' style={{ width: "100%", marginTop: "4px", padding: "8px 12px", border: "1px solid var(--border-color)", borderRadius: "6px", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "monospace", fontSize: "14px" }} rows={3} />
+              <div style={{ marginTop: "8px", padding: "12px", background: "rgba(37, 99, 235, 0.05)", borderRadius: "6px", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
+                <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-primary)", marginBottom: "8px" }}>
+                  💡 {POLICY_TYPES.find(t => t.value === formData.policyType)?.label} 규칙 속성:
+                </p>
+                <pre style={{ fontSize: "11px", color: "var(--text-secondary)", margin: 0, whiteSpace: "pre-wrap" }}>
+{formData.policyType === "CREATION" ? `{
+  "maxNotebooksPerUser": 10,      // 사용자당 최대 노트북 수
+  "allowedScopes": ["PERSONAL"],  // 허용된 범위
+  "requireDescription": true      // 설명 필수 여부
+}` : formData.policyType === "UPLOAD" ? `{
+  "maxFileSize": 52428800,        // 최대 파일 크기 (바이트, 50MB)
+  "allowedFileTypes": ["pdf","docx","txt","md"],  // 허용 파일 형식
+  "maxSourcesPerNotebook": 20     // 노트북당 최대 소스 수
+}` : formData.policyType === "DELETION" ? `{
+  "softDeleteOnly": true,         // 소프트 삭제만 허용
+  "retentionDays": 30,            // 보존 기간 (일)
+  "requireConfirmation": true     // 삭제 확인 필수
+}` : formData.policyType === "MODIFICATION" ? `{
+  "allowedFields": ["name","description"],  // 수정 가능 필드
+  "requireApproval": false        // 수정 승인 필요 여부
+}` : `{
+  "maxQuestionsPerDay": 100,      // 일일 최대 질문 수
+  "filterPatterns": ["주민번호"]   // 필터링 패턴
+  // (Q&A 정책은 아래 별도 설정 사용)
+}`}
+                </pre>
+              </div>
             </div>
             <div>
               <label style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>범위</label>
@@ -300,9 +374,9 @@ export default function AdminPoliciesPage() {
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "24px" }}>
             <Button variant="outline" onClick={() => { setCreating(false); resetForm(); }}>취소</Button>
-            <Button onClick={handleCreate} disabled={!formData.name}>
+            <Button onClick={editingId ? handleUpdate : handleCreate} disabled={!formData.name}>
               <Save style={{ width: "16px", height: "16px", marginRight: "8px" }} />
-              저장
+              {editingId ? "수정" : "저장"}
             </Button>
           </div>
         </Card>
@@ -343,6 +417,9 @@ export default function AdminPoliciesPage() {
                 </div>
               </div>
               <div style={{ display: "flex", gap: "4px" }}>
+                <Button size="sm" variant="ghost" onClick={() => handleEdit(policy)} title="수정">
+                  <Edit2 style={{ width: "16px", height: "16px" }} />
+                </Button>
                 <Button size="sm" variant="ghost" onClick={() => handleToggle(policy.id)} title={policy.isActive ? "비활성화" : "활성화"}>
                   {policy.isActive ? <XCircle style={{ width: "16px", height: "16px" }} /> : <CheckCircle style={{ width: "16px", height: "16px" }} />}
                 </Button>

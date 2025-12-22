@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NotebookService } from "@/lib/notebook/notebook-service";
 import { ProcessingPipeline } from "@/lib/notebook/processing-pipeline";
+import { PolicyAdminService } from "@/lib/notebook/policy-admin-service";
 
 export const dynamic = "force-dynamic";
 
@@ -75,8 +76,28 @@ export async function POST(
     let source;
 
     if (contentType.includes("multipart/form-data")) {
-      // File upload
-      source = await handleFileUpload(req, id, userId);
+      // File upload - need to check policy first
+      const formData = await req.formData();
+      const file = formData.get("file") as File;
+      
+      if (!file) {
+        return NextResponse.json({ error: "파일이 필요합니다." }, { status: 400 });
+      }
+
+      // 정책 검사: 파일 업로드 가능 여부 확인
+      const canUpload = await PolicyAdminService.canUploadFile(id, userId, {
+        size: file.size,
+        type: file.type || "",
+        name: file.name,
+      });
+      if (!canUpload.allowed) {
+        return NextResponse.json(
+          { error: canUpload.reason || "파일 업로드가 제한되었습니다." },
+          { status: 403 }
+        );
+      }
+
+      source = await handleFileUploadWithFile(file, id, userId);
     } else {
       // JSON body (text or URL)
       const body = await req.json();
@@ -106,14 +127,8 @@ export async function POST(
   }
 }
 
-// Handle file upload
-async function handleFileUpload(req: Request, notebookId: string, userId: string) {
-  const formData = await req.formData();
-  const file = formData.get("file") as File;
-
-  if (!file) {
-    throw new Error("파일이 필요합니다.");
-  }
+// Handle file upload with File object (after policy check)
+async function handleFileUploadWithFile(file: File, notebookId: string, userId: string) {
 
   // Read file content
   const buffer = await file.arrayBuffer();
