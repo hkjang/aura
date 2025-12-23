@@ -917,6 +917,7 @@ export default function NotebookChatPage() {
                           
                           // Find page number from elements using citation text
                           let targetPage = 1;
+                          let targetCoords: {x: number; y: number; width: number; height: number} | null = null;
                           const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
                           
                           if (sourcePreview.elements && Array.isArray(sourcePreview.elements) && citationText.length > 5) {
@@ -955,7 +956,11 @@ export default function NotebookChatPage() {
                               // If 2+ words match or 40%+ match, use this page
                               if (matchCount >= 2 || (citationWords.length > 0 && matchCount / citationWords.length >= 0.4)) {
                                 targetPage = Number(element.page) || 1;
-                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount, "element:", elementText.substring(0, 50));
+                                // Store coordinates for highlight box
+                                if (element.coordinates) {
+                                  targetCoords = element.coordinates;
+                                }
+                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount, "coords:", targetCoords);
                                 break;
                               }
                             }
@@ -965,17 +970,38 @@ export default function NotebookChatPage() {
                           
                           return (
                             <>
-                              <iframe
-                                src={`${blobUrl}#page=${targetPage}`}
-                                style={{ 
-                                  width: "100%", 
-                                  height: "calc(100vh - 380px)", 
-                                  minHeight: "400px",
-                                  borderRadius: "8px",
-                                  border: "1px solid var(--border-color)",
-                                }}
-                                title="PDF Preview"
-                              />
+                              <div style={{ position: "relative", width: "100%" }}>
+                                <iframe
+                                  src={`${blobUrl}#page=${targetPage}`}
+                                  style={{ 
+                                    width: "100%", 
+                                    height: "calc(100vh - 380px)", 
+                                    minHeight: "400px",
+                                    borderRadius: "8px",
+                                    border: "1px solid var(--border-color)",
+                                  }}
+                                  title="PDF Preview"
+                                />
+                                {/* Highlight Box Overlay */}
+                                {targetCoords && (
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      // PDF coordinates are typically in points (72 dpi), scale to percentage
+                                      left: `${(targetCoords.x / 612) * 100}%`,
+                                      top: `${(targetCoords.y / 792) * 100}%`,
+                                      width: `${(targetCoords.width / 612) * 100}%`,
+                                      height: `${(targetCoords.height / 792) * 100}%`,
+                                      border: "3px solid #ef4444",
+                                      background: "rgba(239, 68, 68, 0.15)",
+                                      borderRadius: "4px",
+                                      pointerEvents: "none",
+                                      zIndex: 10,
+                                      animation: "pulse 2s infinite",
+                                    }}
+                                  />
+                                )}
+                              </div>
                               <div style={{
                                 marginTop: "8px",
                                 padding: "8px 12px",
