@@ -920,13 +920,18 @@ export default function NotebookChatPage() {
                           const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
                           
                           if (sourcePreview.elements && Array.isArray(sourcePreview.elements) && citationText.length > 5) {
-                            // Try to find page by matching words from citation
-                            const citationWords = citationText.split(/\s+/).filter(w => w.length > 3).slice(0, 5);
+                            // Clean and extract words from citation (remove punctuation)
+                            const citationWords = citationText
+                              .replace(/[.,!?;:'"()]/g, "")
+                              .split(/\s+/)
+                              .filter(w => w.length > 2)
+                              .slice(0, 5);
                             console.log("[PDF Page Match] Citation words:", citationWords);
+                            console.log("[PDF Page Match] Elements count:", sourcePreview.elements.length);
                             
                             for (const element of sourcePreview.elements) {
                               const elementText = String(element.text || "").toLowerCase();
-                              if (elementText.length < 5) continue;
+                              if (elementText.length < 3) continue;
                               
                               // Count matching words
                               let matchCount = 0;
@@ -934,13 +939,15 @@ export default function NotebookChatPage() {
                                 if (elementText.includes(word)) matchCount++;
                               }
                               
-                              // If 2+ words match, use this page
-                              if (matchCount >= 2 || (citationWords.length === 1 && matchCount === 1)) {
+                              // If 2+ words match or 40%+ match, use this page
+                              if (matchCount >= 2 || (citationWords.length > 0 && matchCount / citationWords.length >= 0.4)) {
                                 targetPage = Number(element.page) || 1;
-                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount);
+                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount, "element:", elementText.substring(0, 50));
                                 break;
                               }
                             }
+                          } else {
+                            console.log("[PDF Page Match] No elements available. Elements:", sourcePreview.elements);
                           }
                           
                           return (
