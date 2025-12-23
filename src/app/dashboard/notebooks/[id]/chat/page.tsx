@@ -84,6 +84,10 @@ export default function NotebookChatPage() {
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  // Resizable panel state
+  const [panelWidth, setPanelWidth] = useState(55); // percentage
+  const [isResizing, setIsResizing] = useState(false);
+  
   // Model selection
   const [models, setModels] = useState<Array<{id: string; name: string; provider: string; modelId: string}>>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>("");
@@ -695,32 +699,70 @@ export default function NotebookChatPage() {
         )}
       </div>
 
-      {/* Citation Detail with Source Preview */}
+      {/* Citation Side Panel - Right (Resizable) */}
       {selectedCitation && (
         <div
           style={{
             position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            zIndex: 200,
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: `${panelWidth}%`,
+            minWidth: "400px",
+            maxWidth: "80%",
+            background: "var(--bg-primary)",
+            borderLeft: "1px solid var(--border-color)",
+            zIndex: 100,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px",
+            flexDirection: "column",
+            boxShadow: "-4px 0 20px rgba(0,0,0,0.1)",
+            animation: isResizing ? "none" : "slideInRight 0.3s ease-out",
           }}
-          onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
         >
-          <Card
+          {/* Resize Handle */}
+          <div
             style={{
-              padding: "24px",
-              maxWidth: "800px",
-              width: "100%",
-              maxHeight: "80vh",
-              overflow: "auto",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: "8px",
+              cursor: "ew-resize",
+              background: isResizing ? "var(--color-primary)" : "transparent",
+              transition: "background 0.2s",
+              zIndex: 10,
             }}
-            onClick={(e) => e.stopPropagation()}
-          >
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+              const startX = e.clientX;
+              const startWidth = panelWidth;
+              
+              const handleMouseMove = (moveEvent: MouseEvent) => {
+                const deltaX = startX - moveEvent.clientX;
+                const newWidth = startWidth + (deltaX / window.innerWidth * 100);
+                setPanelWidth(Math.min(80, Math.max(30, newWidth)));
+              };
+              
+              const handleMouseUp = () => {
+                setIsResizing(false);
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+              };
+              
+              document.addEventListener('mousemove', handleMouseMove);
+              document.addEventListener('mouseup', handleMouseUp);
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.background = "rgba(124, 58, 237, 0.3)";
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizing) {
+                (e.target as HTMLElement).style.background = "transparent";
+              }
+            }}
+          />
+          <div style={{ padding: "20px", flex: 1, overflow: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div
@@ -821,36 +863,100 @@ export default function NotebookChatPage() {
                 </div>
               ) : sourcePreview ? (
                 <div>
-                  {/* PDF Viewer Option */}
-                  {sourcePreview.pdfBase64 && (
-                    <div style={{ marginBottom: "12px" }}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const pdfWindow = window.open();
-                          if (pdfWindow) {
-                            pdfWindow.document.write(`
-                              <html>
-                                <head><title>${sourcePreview.title}</title></head>
-                                <body style="margin:0;padding:0;">
-                                  <embed 
-                                    src="data:application/pdf;base64,${sourcePreview.pdfBase64}" 
-                                    type="application/pdf" 
-                                    width="100%" 
-                                    height="100%"
-                                    style="position:fixed;top:0;left:0;width:100%;height:100%;"
-                                  />
-                                </body>
-                              </html>
-                            `);
-                            pdfWindow.document.close();
+                  {/* PDF Embedded Viewer */}
+                  {sourcePreview.pdfBase64 ? (
+                    <div style={{ marginBottom: "16px" }}>
+                      {/* Create PDF blob URL and render in iframe */}
+                      {(() => {
+                        try {
+                          const byteCharacters = atob(sourcePreview.pdfBase64 || "");
+                          const byteNumbers = new Array(byteCharacters.length);
+                          for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
                           }
-                        }}
-                      >
-                        <ExternalLink style={{ width: "14px", height: "14px", marginRight: "6px" }} />
-                        PDF 원본 보기
-                      </Button>
+                          const byteArray = new Uint8Array(byteNumbers);
+                          const blob = new Blob([byteArray], { type: "application/pdf" });
+                          const blobUrl = URL.createObjectURL(blob);
+                          
+                          // Extract first few words for search highlight
+                          const searchText = selectedCitation.content
+                            .substring(0, 50)
+                            .replace(/[^\w\s가-힣]/g, "")
+                            .trim();
+                          
+                          return (
+                            <>
+                              <iframe
+                                src={`${blobUrl}#search=${encodeURIComponent(searchText)}`}
+                                style={{ 
+                                  width: "100%", 
+                                  height: "calc(100vh - 380px)", 
+                                  minHeight: "400px",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--border-color)",
+                                }}
+                                title="PDF Preview"
+                              />
+                              <div style={{
+                                marginTop: "8px",
+                                padding: "8px 12px",
+                                background: "rgba(239, 68, 68, 0.1)",
+                                borderRadius: "6px",
+                                border: "1px solid rgba(239, 68, 68, 0.2)",
+                                fontSize: "12px",
+                              }}>
+                                <span style={{ color: "#ef4444", fontWeight: 500 }}>📍 검색어:</span>
+                                <span style={{ color: "var(--text-secondary)", marginLeft: "8px" }}>
+                                  "{searchText}..."
+                                </span>
+                              </div>
+                            </>
+                          );
+                        } catch (e) {
+                          console.error("PDF rendering error:", e);
+                          return (
+                            <div style={{ 
+                              padding: "20px", 
+                              background: "var(--bg-secondary)", 
+                              borderRadius: "8px",
+                              textAlign: "center" 
+                            }}>
+                              <p style={{ marginBottom: "12px", color: "var(--text-secondary)" }}>
+                                PDF 미리보기를 표시할 수 없습니다.
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const byteCharacters = atob(sourcePreview.pdfBase64 || "");
+                                  const byteNumbers = new Array(byteCharacters.length);
+                                  for (let i = 0; i < byteCharacters.length; i++) {
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                  }
+                                  const byteArray = new Uint8Array(byteNumbers);
+                                  const blob = new Blob([byteArray], { type: "application/pdf" });
+                                  const url = URL.createObjectURL(blob);
+                                  window.open(url, "_blank");
+                                }}
+                              >
+                                <ExternalLink style={{ width: 14, height: 14, marginRight: 6 }} />
+                                새 탭에서 PDF 열기
+                              </Button>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      padding: "16px", 
+                      background: "var(--bg-secondary)", 
+                      borderRadius: "8px",
+                      color: "var(--text-tertiary)",
+                      fontSize: "13px",
+                      marginBottom: "16px",
+                    }}>
+                      📄 {sourcePreview.fileType === "application/pdf" ? "PDF 원본 데이터가 없습니다." : `파일 형식: ${sourcePreview.fileType || "텍스트"}`}
                     </div>
                   )}
                   
@@ -918,7 +1024,7 @@ export default function NotebookChatPage() {
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -1012,6 +1118,10 @@ export default function NotebookChatPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
         }
       `}</style>
     </div>
