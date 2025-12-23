@@ -5,6 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import { VectorStoreFactory, VectorSearchResult } from "./vector-store";
 import { EmbeddingService } from "./embedding-service";
+import { RAGAccuracyRules, ProcessedQuery, RankedResult, RuleResult } from "./rag-accuracy-rules";
 
 export interface Citation {
   sourceId: string;

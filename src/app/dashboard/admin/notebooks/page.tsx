@@ -27,6 +27,8 @@ import {
   ChevronRight,
   Layers,
   Link2,
+  Gauge,
+  Code,
 } from "lucide-react";
 
 interface NotebookWithCounts {
@@ -313,6 +315,18 @@ export default function AdminNotebooksPage() {
             <Button variant="outline" size="sm">
               <Link2 style={{ width: "16px", height: "16px", marginRight: "8px" }} />
               RAG 추적
+            </Button>
+          </Link>
+          <Link href="/dashboard/admin/notebooks/rag-accuracy">
+            <Button variant="outline" size="sm">
+              <Gauge style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              정확도
+            </Button>
+          </Link>
+          <Link href="/dashboard/admin/notebooks/dsl-editor">
+            <Button variant="outline" size="sm">
+              <Code style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              DSL
             </Button>
           </Link>
           <Link href="/dashboard/admin/notebooks/policies">

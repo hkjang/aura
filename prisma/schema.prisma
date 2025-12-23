@@ -142,6 +142,7 @@ model RAGTraceChunk {
   chunkId        String   // Reference to original chunk
   rank           Int      // 검색 순위
   similarity     Float    // 유사도 점수
+  adjustedScore  Float?   // 정확도 규칙 적용 후 점수
   qualityScore   Int?     // 품질 점수
   qualityGrade   String?  // 품질 등급
   documentName   String?  // 문서명
@@ -149,9 +150,77 @@ model RAGTraceChunk {
   content        String   // 청크 내용
   tokenCount     Int?     // 토큰 수
   isUsedInAnswer Boolean  @default(false) // 답변에 사용 여부
+  isFiltered     Boolean  @default(false) // 필터링 여부
+  filterReason   String?  // 필터링 사유
+  appliedRules   String?  // JSON: 적용된 규칙 목록
   
   @@index([traceId])
   @@index([chunkId])
+}
+
+// RAG Accuracy Configuration - Store accuracy rule settings
+model RAGAccuracyConfig {
+  id                      String   @id @default(cuid())
+  name                    String   // 설정 이름
+  scope                   String   @default("GLOBAL") // GLOBAL, NOTEBOOK, DOCUMENT_TYPE
+  notebookId              String?  // 노트북 스코프일 경우
+  documentType            String?  // 문서 유형 스코프일 경우
+  
+  // Query Preprocessing
+  enableSynonymExpansion    Boolean @default(true)
+  enableStopwordRemoval     Boolean @default(true)
+  enableQueryTypeClassification Boolean @default(true)
+  maxQueryLength            Int     @default(500)
+  
+  // Chunk Selection
+  minQualityScore           Int     @default(40)
+  minSimilarity             Float   @default(0.3)
+  minTokenCount             Int     @default(20)
+  maxTokenCount             Int     @default(1000)
+  recentDocBoost            Float   @default(0.05)
+  approvedDocBoost          Float   @default(0.1)
+  
+  // Similarity Adjustment
+  adjacentChunkBonus        Float   @default(0.03)
+  duplicatePenalty          Float   @default(0.15)
+  
+  // Answer Generation
+  maxReferenceChunks        Int     @default(5)
+  diversityWeight           Float   @default(0.2)
+  
+  // Hybrid Search
+  keywordMatchBoost         Float   @default(0.1)
+  vectorWeight              Float   @default(0.7)
+  
+  isActive                  Boolean @default(true)
+  isDefault                 Boolean @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  
+  @@index([scope])
+  @@index([notebookId])
+  @@index([documentType])
+}
+
+// RAG Feedback - User feedback for accuracy improvement
+model RAGFeedback {
+  id            String   @id @default(cuid())
+  traceId       String   // 관련 RAG Trace
+  userId        String
+  rating        Int      // 1-5 점수
+  isHelpful     Boolean? // 도움 여부
+  comment       String?  // 선택적 코멘트
+  feedbackType  String   @default("RATING") // RATING, IRRELEVANT, INCOMPLETE, WRONG
+  
+  // For accuracy rule adjustment
+  suggestedChunks String?  // JSON: 사용자가 제안한 더 좋은 출처
+  missedInfo      String?  // 누락된 정보
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([traceId])
+  @@index([userId])
+  @@index([rating])
 }
 
 model ChatSession {
