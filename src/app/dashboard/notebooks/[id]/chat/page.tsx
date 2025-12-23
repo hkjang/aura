@@ -23,6 +23,7 @@ import {
   Settings,
   Brain,
   Link2,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -169,6 +170,33 @@ export default function NotebookChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-load source preview when citation is selected
+  useEffect(() => {
+    if (selectedCitation && !sourcePreview && !loadingSource) {
+      const fetchSource = async () => {
+        setLoadingSource(true);
+        try {
+          const res = await fetch(`/api/notebooks/${notebookId}/sources/${selectedCitation.sourceId}`);
+          if (res.ok) {
+            const data = await res.json();
+            const metadata = data.source.metadata ? JSON.parse(data.source.metadata) : {};
+            setSourcePreview({ 
+              title: data.source.title, 
+              content: data.source.content,
+              fileType: data.source.fileType,
+              pdfBase64: metadata.pdfBase64,
+              elements: metadata.elements,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to load source:", e);
+        }
+        setLoadingSource(false);
+      };
+      fetchSource();
+    }
+  }, [selectedCitation, notebookId]);
 
   const clearChat = () => {
     if (confirm("대화 내역을 모두 삭제하시겠습니까?")) {
@@ -787,18 +815,27 @@ export default function NotebookChatPage() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "none",
-                  borderRadius: "8px",
-                  padding: "8px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Link href={`/dashboard/admin/notebooks/chunks?sourceId=${selectedCitation.sourceId}`}>
+                  <Button variant="outline" size="sm" style={{ padding: "6px 10px" }}>
+                    <Layers style={{ width: 14, height: 14, marginRight: 4 }} />
+                    청킹
+                  </Button>
+                </Link>
+                <button
+                  onClick={() => { setSelectedCitation(null); setSourcePreview(null); }}
+                  style={{
+                    background: "var(--bg-secondary)",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                  }}
+                >
+                  ✕ 닫기
+                </button>
+              </div>
             </div>
 
             {/* Citation Snippet */}
