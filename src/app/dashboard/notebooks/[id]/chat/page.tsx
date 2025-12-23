@@ -930,7 +930,20 @@ export default function NotebookChatPage() {
                             console.log("[PDF Page Match] Elements count:", sourcePreview.elements.length);
                             
                             for (const element of sourcePreview.elements) {
-                              const elementText = String(element.text || "").toLowerCase();
+                              // Extract text from element - handle both string and object formats
+                              let rawText = "";
+                              if (typeof element.text === "string") {
+                                rawText = element.text;
+                              } else if (element.text && typeof element.text === "object") {
+                                // Upstage format: { html, markdown, text }
+                                rawText = element.text.text || element.text.markdown || "";
+                                // If still empty, extract from HTML
+                                if (!rawText && element.text.html) {
+                                  rawText = element.text.html.replace(/<[^>]+>/g, " ").trim();
+                                }
+                              }
+                              
+                              const elementText = rawText.toLowerCase();
                               if (elementText.length < 3) continue;
                               
                               // Count matching words

@@ -164,6 +164,15 @@ async function handleFileUploadWithFile(file: File, notebookId: string, userId: 
     throw new Error("파일에서 충분한 텍스트를 추출할 수 없습니다.");
   }
 
+  // Log elements info for debugging
+  const elements = elementsJson ? JSON.parse(elementsJson) : null;
+  console.log(`[PDF Upload] File: ${fileName}`);
+  console.log(`[PDF Upload] Elements count: ${elements?.length || 0}`);
+  if (elements?.length > 0) {
+    console.log(`[PDF Upload] First element:`, JSON.stringify(elements[0]).substring(0, 200));
+    console.log(`[PDF Upload] Pages found:`, [...new Set(elements.map((e: {page?: number}) => e.page))]);
+  }
+
   // Create source record
   const source = await prisma.knowledgeSource.create({
     data: {
@@ -179,7 +188,7 @@ async function handleFileUploadWithFile(file: File, notebookId: string, userId: 
       metadata: JSON.stringify({
         uploadedAt: new Date().toISOString(),
         pdfBase64: pdfBase64,
-        elements: elementsJson ? JSON.parse(elementsJson) : null,
+        elements: elements,
       }),
     },
   });
