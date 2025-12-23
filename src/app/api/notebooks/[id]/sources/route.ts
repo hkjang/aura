@@ -346,6 +346,7 @@ async function parseWithUpstage(file: File): Promise<UpstageParseResult> {
   
   // Parse elements from the response (Upstage returns elements array)
   if (result.elements && Array.isArray(result.elements)) {
+    console.log("[Upstage] First raw element keys:", Object.keys(result.elements[0] || {}));
     for (const el of result.elements) {
       elements.push({
         id: el.id || String(elements.length),
