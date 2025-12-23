@@ -186,6 +186,20 @@ export async function POST(
               fullAnswer,
               context.citations
             );
+            
+            // Save RAG trace for explainability analysis
+            await NotebookRAG.saveRAGTrace(
+              id,
+              userId,
+              question,
+              question, // processed query (same for now)
+              fullAnswer,
+              context.citations,
+              {
+                model: modelId,
+                generationTime: Date.now() - Date.now(), // Would need actual timing
+              }
+            );
           }
 
           controller.close();

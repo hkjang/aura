@@ -76,6 +76,84 @@ model ModelConfig {
   updatedAt   DateTime @updatedAt
 }
 
+// Embedding Model Configuration (multiple models with default)
+model EmbeddingModelConfig {
+  id          String   @id @default(cuid())
+  name        String   // Display name (e.g., "Upstage Solar Large")
+  provider    String   // upstage, openai, ollama, huggingface
+  modelId     String   // The actual model ID (e.g., "solar-embedding-1-large")
+  dimension   Int      @default(1536) // Embedding dimension
+  baseUrl     String?  // API base URL (for Ollama, vLLM)
+  apiKey      String?  // API key (encrypted ideally)
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false) // Default model for pipeline
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Chunking Rule Override - Admin-defined overrides for document type chunking
+model ChunkingRuleOverride {
+  id            String   @id @default(cuid())
+  name          String   // Display name for this override
+  notebookId    String?  // Optional: notebook-specific override
+  documentType  String   // POLICY, TECHNICAL, REPORT, WEB, OCR, GENERAL
+  minTokens     Int?     // Override min tokens
+  maxTokens     Int?     // Override max tokens
+  overlapTokens Int?     // Override overlap tokens
+  similarityThreshold Float? // Override merge similarity
+  minParagraphs Int?     // Override min paragraphs
+  primaryStrategy   String? // Override primary chunking strategy
+  secondaryStrategy String? // Override secondary chunking strategy
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([documentType])
+  @@index([notebookId])
+}
+
+// RAG Trace - Store query-chunk-answer traces for explainability
+model RAGTrace {
+  id              String   @id @default(cuid())
+  notebookId      String
+  userId          String
+  originalQuery   String   // 원본 질문
+  processedQuery  String?  // 전처리된 쿼리
+  answer          String   // LLM 생성 답변
+  model           String?  // 사용된 모델
+  generationTime  Int?     // 생성 시간 (ms)
+  totalChunks     Int      @default(0)  // 검색된 총 청크 수
+  usedChunks      Int      @default(0)  // 답변에 사용된 청크 수
+  avgSimilarity   Float?   // 평균 유사도
+  createdAt       DateTime @default(now())
+  
+  chunks          RAGTraceChunk[]
+  
+  @@index([notebookId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// RAG Trace Chunk - Individual chunk info for each trace
+model RAGTraceChunk {
+  id             String   @id @default(cuid())
+  traceId        String
+  trace          RAGTrace @relation(fields: [traceId], references: [id], onDelete: Cascade)
+  chunkId        String   // Reference to original chunk
+  rank           Int      // 검색 순위
+  similarity     Float    // 유사도 점수
+  qualityScore   Int?     // 품질 점수
+  qualityGrade   String?  // 품질 등급
+  documentName   String?  // 문서명
+  documentType   String?  // 문서 유형
+  content        String   // 청크 내용
+  tokenCount     Int?     // 토큰 수
+  isUsedInAnswer Boolean  @default(false) // 답변에 사용 여부
+  
+  @@index([traceId])
+  @@index([chunkId])
+}
+
 model ChatSession {
   id        String        @id @default(cuid())
   title     String

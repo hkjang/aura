@@ -25,6 +25,8 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  Layers,
+  Link2,
 } from "lucide-react";
 
 interface NotebookWithCounts {
@@ -300,7 +302,19 @@ export default function AdminNotebooksPage() {
             전체 노트북의 라이프사이클, 정책, 파이프라인을 관리합니다
           </p>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <Link href="/dashboard/admin/notebooks/chunks">
+            <Button variant="outline" size="sm">
+              <Layers style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              청킹
+            </Button>
+          </Link>
+          <Link href="/dashboard/admin/notebooks/rag-trace">
+            <Button variant="outline" size="sm">
+              <Link2 style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              RAG 추적
+            </Button>
+          </Link>
           <Link href="/dashboard/admin/notebooks/policies">
             <Button variant="outline" size="sm">
               <Shield style={{ width: "16px", height: "16px", marginRight: "8px" }} />

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Plus, Trash, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart, FileText, Layers, Database } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Settings, Plus, Trash, Trash2, Server, Key, Check, Loader2, ExternalLink, Scale, Cpu, Link2, BarChart, FileText, Layers, Database, Star, ToggleRight, ToggleLeft } from "lucide-react";
 
 // ============ Interfaces ============
 interface ModelConfig {
@@ -727,170 +728,240 @@ function ScoringSettingsTab() {
 }
 
 // ============ Embedding Settings Tab ============
+interface EmbeddingModel {
+  id: string;
+  name: string;
+  provider: string;
+  modelId: string;
+  dimension: number;
+  baseUrl: string | null;
+  apiKey: string | null;
+  isActive: boolean;
+  isDefault: boolean;
+}
+
 function EmbeddingSettingsTab() {
-  const [provider, setProvider] = useState("upstage");
-  const [modelId, setModelId] = useState("solar-embedding-1-large");
-  const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
+  const [models, setModels] = useState<EmbeddingModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/system-config")
-      .then(res => res.json())
-      .then(data => {
-        const providerConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_PROVIDER');
-        if (providerConfig?.value) setProvider(providerConfig.value);
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    provider: "upstage",
+    modelId: "solar-embedding-1-large",
+    dimension: 4096,
+    baseUrl: "",
+    apiKey: "",
+    isDefault: false,
+  });
 
-        const modelConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_MODEL');
-        if (modelConfig?.value) setModelId(modelConfig.value);
+  const EMBEDDING_PROVIDERS = [
+    { id: 'upstage', name: 'Upstage Solar', models: [
+      { id: 'solar-embedding-1-large', dim: 4096 },
+      { id: 'solar-embedding-1-small', dim: 1024 }
+    ]},
+    { id: 'openai', name: 'OpenAI', models: [
+      { id: 'text-embedding-3-small', dim: 1536 },
+      { id: 'text-embedding-3-large', dim: 3072 },
+      { id: 'text-embedding-ada-002', dim: 1536 }
+    ]},
+    { id: 'ollama', name: 'Ollama (로컬)', models: [
+      { id: 'bge-m3', dim: 1024 },
+      { id: 'nomic-embed-text', dim: 768 },
+      { id: 'all-minilm', dim: 384 },
+      { id: 'mxbai-embed-large', dim: 1024 }
+    ]},
+    { id: 'huggingface', name: 'HuggingFace', models: [
+      { id: 'BAAI/bge-m3', dim: 1024 },
+      { id: 'sentence-transformers/all-MiniLM-L6-v2', dim: 384 }
+    ]},
+  ];
 
-        const urlConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_BASE_URL');
-        if (urlConfig?.value && !urlConfig.value.includes('***')) setBaseUrl(urlConfig.value);
-
-        const keyConfig = data.configs?.find((c: SystemConfig) => c.key === 'EMBEDDING_API_KEY');
-        if (keyConfig?.value) setHasApiKey(true);
-      })
-      .catch(console.error);
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
+  const fetchModels = async () => {
     try {
-      await Promise.all([
-        fetch("/api/admin/system-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "EMBEDDING_PROVIDER", value: provider, description: "임베딩 프로바이더" })
-        }),
-        fetch("/api/admin/system-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "EMBEDDING_MODEL", value: modelId, description: "임베딩 모델 ID" })
-        }),
-        baseUrl && fetch("/api/admin/system-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "EMBEDDING_BASE_URL", value: baseUrl, description: "임베딩 API 베이스 URL" })
-        }),
-        apiKey && fetch("/api/admin/system-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "EMBEDDING_API_KEY", value: apiKey, description: "임베딩 API 키" })
-        }),
-      ].filter(Boolean));
-      setSaved(true);
-      if (apiKey) { setHasApiKey(true); setApiKey(""); }
-      setTimeout(() => setSaved(false), 3000);
+      const res = await fetch("/api/embedding-models");
+      const data = await res.json();
+      setModels(data.models || []);
     } catch (e) {
       console.error(e);
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const EMBEDDING_PROVIDERS = [
-    { id: 'upstage', name: 'Upstage Solar', models: ['solar-embedding-1-large', 'solar-embedding-1-small'] },
-    { id: 'openai', name: 'OpenAI', models: ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002'] },
-    { id: 'ollama', name: 'Ollama (로컬)', models: ['bge-m3', 'nomic-embed-text', 'all-minilm', 'mxbai-embed-large'] },
-    { id: 'huggingface', name: 'HuggingFace', models: ['BAAI/bge-m3', 'sentence-transformers/all-MiniLM-L6-v2'] },
-  ];
+  useEffect(() => { fetchModels(); }, []);
 
-  const currentProvider = EMBEDDING_PROVIDERS.find(p => p.id === provider);
+  const handleAdd = async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/embedding-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      setShowAddForm(false);
+      setFormData({ name: "", provider: "upstage", modelId: "solar-embedding-1-large", dimension: 4096, baseUrl: "", apiKey: "", isDefault: false });
+      await fetchModels();
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  };
+
+  const handleToggleDefault = async (id: string) => {
+    await fetch("/api/embedding-models", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, isDefault: true }),
+    });
+    await fetchModels();
+  };
+
+  const handleToggleActive = async (id: string, isActive: boolean) => {
+    await fetch("/api/embedding-models", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, isActive: !isActive }),
+    });
+    await fetchModels();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    await fetch(`/api/embedding-models?id=${id}`, { method: "DELETE" });
+    await fetchModels();
+  };
+
+  const currentProvider = EMBEDDING_PROVIDERS.find(p => p.id === formData.provider);
 
   return (
-    <div style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ padding: '20px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Layers style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
-          임베딩 프로바이더 설정
-        </h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>프로바이더</label>
-            <select
-              className="select-trigger"
-              value={provider}
-              onChange={e => { setProvider(e.target.value); setModelId(EMBEDDING_PROVIDERS.find(p => p.id === e.target.value)?.models[0] || ''); }}
-              style={{ width: '100%' }}
-            >
-              {EMBEDDING_PROVIDERS.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>모델</label>
-            <select
-              className="select-trigger"
-              value={modelId}
-              onChange={e => setModelId(e.target.value)}
-              style={{ width: '100%' }}
-            >
-              {currentProvider?.models.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-              <option value="custom">직접 입력...</option>
-            </select>
-          </div>
+    <div style={{ maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Layers style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
+            등록된 임베딩 모델
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            여러 임베딩 모델을 등록하고 기본 모델을 지정할 수 있습니다.
+          </p>
         </div>
-
-        {modelId === 'custom' && (
-          <div style={{ marginTop: '12px' }}>
-            <Input 
-              placeholder="커스텀 모델 ID"
-              value={modelId === 'custom' ? '' : modelId}
-              onChange={e => setModelId(e.target.value)}
-            />
-          </div>
-        )}
-
-        <div style={{ marginTop: '16px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>Base URL (Ollama/vLLM용)</label>
-          <Input 
-            placeholder={provider === 'ollama' ? 'http://localhost:11434' : '선택사항'}
-            value={baseUrl}
-            onChange={e => setBaseUrl(e.target.value)}
-          />
-        </div>
-
-        <div style={{ marginTop: '16px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px', display: 'block' }}>API 키</label>
-          {hasApiKey && (
-            <div style={{ padding: '8px 12px', background: 'rgba(34, 197, 94, 0.1)', borderRadius: '6px', marginBottom: '8px', fontSize: '12px', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Check style={{ width: '14px', height: '14px' }} /> API 키 설정됨
-            </div>
-          )}
-          <Input 
-            type="password"
-            placeholder={hasApiKey ? "새 API 키로 변경" : "API 키 입력"}
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-          />
-        </div>
-
-        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />
-              : saved ? <Check style={{ width: '16px', height: '16px' }} /> : '설정 저장'}
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+          {showAddForm ? '취소' : '+ 모델 추가'}
+        </Button>
       </div>
 
+      {/* Add Form */}
+      {showAddForm && (
+        <Card style={{ padding: '20px', background: 'var(--bg-secondary)', border: '1px solid var(--color-primary)', borderStyle: 'dashed' }}>
+          <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>새 임베딩 모델 추가</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>표시 이름</label>
+              <Input placeholder="예: Upstage Solar Large" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>프로바이더</label>
+              <select className="select-trigger" value={formData.provider} onChange={e => {
+                const prov = EMBEDDING_PROVIDERS.find(p => p.id === e.target.value);
+                setFormData({ ...formData, provider: e.target.value, modelId: prov?.models[0]?.id || '', dimension: prov?.models[0]?.dim || 1536 });
+              }} style={{ width: '100%' }}>
+                {EMBEDDING_PROVIDERS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>모델</label>
+              <select className="select-trigger" value={formData.modelId} onChange={e => {
+                const model = currentProvider?.models.find(m => m.id === e.target.value);
+                setFormData({ ...formData, modelId: e.target.value, dimension: model?.dim || 1536 });
+              }} style={{ width: '100%' }}>
+                {currentProvider?.models.map(m => <option key={m.id} value={m.id}>{m.id} ({m.dim}D)</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>차원</label>
+              <Input type="number" value={formData.dimension} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>Base URL</label>
+              <Input placeholder={formData.provider === 'ollama' ? 'http://localhost:11434' : '선택사항'} value={formData.baseUrl} onChange={e => setFormData({ ...formData, baseUrl: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 500, marginBottom: '4px', display: 'block' }}>API 키</label>
+              <Input type="password" placeholder="API 키 (선택)" value={formData.apiKey} onChange={e => setFormData({ ...formData, apiKey: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input type="checkbox" id="isDefault" checked={formData.isDefault} onChange={e => setFormData({ ...formData, isDefault: e.target.checked })} />
+            <label htmlFor="isDefault" style={{ fontSize: '13px' }}>기본 모델로 설정</label>
+          </div>
+          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+            <Button onClick={handleAdd} disabled={saving || !formData.name}>
+              {saving ? <Loader2 style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : '추가'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Model List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <Loader2 style={{ width: '24px', height: '24px', animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />
+          </div>
+        ) : models.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+            등록된 임베딩 모델이 없습니다. 위에서 모델을 추가하세요.
+          </div>
+        ) : (
+          models.map(model => (
+            <Card key={model.id} style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: model.isActive ? 1 : 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: model.isDefault ? 'rgba(34, 197, 94, 0.1)' : 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {model.isDefault ? <Star style={{ width: '18px', height: '18px', color: 'var(--color-success)' }} /> : <Layers style={{ width: '18px', height: '18px', color: 'var(--text-secondary)' }} />}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{model.name || model.modelId}</span>
+                    {model.isDefault && <span style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--color-success)', color: 'white', borderRadius: '4px' }}>기본</span>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {model.provider} • {model.modelId} • {model.dimension}D
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!model.isDefault && (
+                  <Button variant="outline" size="sm" onClick={() => handleToggleDefault(model.id)}>
+                    기본으로
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(model.id, model.isActive)}>
+                  {model.isActive ? <ToggleRight style={{ width: '20px', height: '20px', color: 'var(--color-success)' }} /> : <ToggleLeft style={{ width: '20px', height: '20px' }} />}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(model.id)}>
+                  <Trash2 style={{ width: '16px', height: '16px', color: 'var(--color-error)' }} />
+                </Button>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Info */}
       <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '13px', color: 'var(--text-secondary)' }}>
-        <strong style={{ color: 'var(--text-primary)' }}>💡 프로바이더별 안내</strong>
+        <strong style={{ color: 'var(--text-primary)' }}>💡 안내</strong>
         <ul style={{ marginTop: '8px', paddingLeft: '16px', lineHeight: 1.7 }}>
-          <li><strong>Upstage:</strong> 한국어 특화 solar-embedding 제공</li>
-          <li><strong>OpenAI:</strong> text-embedding-3-small 추천 (비용 효율)</li>
-          <li><strong>Ollama:</strong> 로컬 무료, Base URL 필수</li>
-          <li><strong>HuggingFace:</strong> 오픈소스 모델 사용</li>
+          <li><strong>기본 모델:</strong> 파이프라인 설정에서 기본으로 선택됩니다.</li>
+          <li><strong>활성 모델:</strong> 파이프라인 드롭다운에 표시됩니다.</li>
+          <li>비활성화된 모델은 숨겨지지만 삭제되지 않습니다.</li>
         </ul>
       </div>
     </div>
   );
 }
+
 
 // ============ Vector DB Settings Tab ============
 function VectorDBSettingsTab() {

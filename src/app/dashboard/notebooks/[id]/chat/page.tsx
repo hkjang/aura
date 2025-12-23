@@ -22,6 +22,7 @@ import {
   ThumbsDown,
   Settings,
   Brain,
+  Link2,
 } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -379,6 +380,12 @@ export default function NotebookChatPage() {
         </div>
 
         <div style={{ display: "flex", gap: "8px" }}>
+          <Link href="/dashboard/admin/notebooks/rag-trace">
+            <Button variant="outline" size="sm">
+              <Link2 style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+              RAG 추적
+            </Button>
+          </Link>
           {messages.length > 0 && (
             <Button
               variant="outline"

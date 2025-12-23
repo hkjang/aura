@@ -2,6 +2,9 @@
  * Chunking Service - Semantic text chunking for knowledge sources
  */
 
+import { ChunkingDSLEngine, chunkingDSLEngine } from "./chunking-dsl-engine";
+import { DocumentType, DSLExecutionResult } from "./chunking-dsl-types";
+
 export interface ChunkResult {
   content: string;
   chunkIndex: number;
@@ -262,5 +265,29 @@ export class ChunkingService {
     else if (hasHeadings || hasTables || hasLists) estimatedType = "structured";
 
     return { hasHeadings, hasTables, hasLists, estimatedType };
+  }
+
+  /**
+   * Chunk text using DSL engine with automatic document type detection
+   * This provides intelligent chunking based on document type, content analysis,
+   * and admin-defined override rules.
+   */
+  static async chunkWithDSL(
+    text: string,
+    options: {
+      fileName?: string;
+      mimeType?: string;
+      notebookId?: string;
+      forceDocumentType?: DocumentType;
+    } = {}
+  ): Promise<DSLExecutionResult> {
+    return chunkingDSLEngine.execute(text, options);
+  }
+
+  /**
+   * Get DSL engine instance for advanced usage (e.g., adding overrides)
+   */
+  static getDSLEngine(): ChunkingDSLEngine {
+    return chunkingDSLEngine;
   }
 }

@@ -13,6 +13,7 @@ export interface ProcessingOptions {
   chunkSize?: number;
   chunkOverlap?: number;
   extractKeywords?: boolean;
+  autoOptimize?: boolean; // 스마트 최적화 사용 여부 (기본: true)
 }
 
 export interface ProcessingResult {
@@ -20,6 +21,169 @@ export interface ProcessingResult {
   sourceId: string;
   chunksCreated: number;
   error?: string;
+  optimizationApplied?: string; // 적용된 최적화 전략
+}
+
+/**
+ * Smart Pipeline Optimizer - 문서 유형에 따른 자동 최적화
+ */
+export class SmartPipelineOptimizer {
+  // 문서 유형별 최적 설정
+  private static readonly PROFILES: Record<string, {
+    name: string;
+    chunkSize: number;
+    overlap: number;
+    description: string;
+  }> = {
+    pdf_technical: {
+      name: "기술 문서 (PDF)",
+      chunkSize: 1024,
+      overlap: 128,
+      description: "긴 단락과 복잡한 구조를 위한 큰 청크",
+    },
+    pdf_general: {
+      name: "일반 PDF",
+      chunkSize: 768,
+      overlap: 100,
+      description: "표준 PDF 문서용 중간 크기 청크",
+    },
+    docx: {
+      name: "Word 문서",
+      chunkSize: 512,
+      overlap: 64,
+      description: "구조화된 문서용 표준 청크",
+    },
+    code: {
+      name: "소스 코드",
+      chunkSize: 600,
+      overlap: 100,
+      description: "코드 블록 보존을 위한 설정",
+    },
+    markdown: {
+      name: "마크다운/노트",
+      chunkSize: 500,
+      overlap: 50,
+      description: "짧은 섹션 기반 문서용",
+    },
+    text_short: {
+      name: "짧은 텍스트",
+      chunkSize: 2000,
+      overlap: 0,
+      description: "분할 불필요한 짧은 텍스트",
+    },
+    text_long: {
+      name: "긴 텍스트",
+      chunkSize: 800,
+      overlap: 100,
+      description: "긴 평문 텍스트용",
+    },
+    url: {
+      name: "웹 페이지",
+      chunkSize: 600,
+      overlap: 75,
+      description: "웹 콘텐츠용 중간 크기 청크",
+    },
+    default: {
+      name: "기본 설정",
+      chunkSize: 512,
+      overlap: 64,
+      description: "범용 기본 설정",
+    },
+  };
+
+  /**
+   * 소스 정보를 기반으로 최적 처리 설정 결정
+   */
+  static getOptimalSettings(source: {
+    type: string;
+    fileType?: string | null;
+    originalName?: string | null;
+    content: string;
+  }): { chunkSize: number; overlap: number; profile: string } {
+    const contentLength = source.content?.length || 0;
+    const fileName = source.originalName?.toLowerCase() || "";
+    const fileType = source.fileType?.toLowerCase() || "";
+
+    // 짧은 텍스트 (2KB 미만) - 분할 불필요
+    if (contentLength < 2000) {
+      return { ...this.PROFILES.text_short, profile: "text_short" };
+    }
+
+    // URL/웹 콘텐츠
+    if (source.type === "URL") {
+      return { ...this.PROFILES.url, profile: "url" };
+    }
+
+    // PDF 문서
+    if (fileType.includes("pdf") || fileName.endsWith(".pdf")) {
+      // 기술 문서 감지 (긴 문서, 코드 포함)
+      const isTechnical = contentLength > 50000 || 
+        /\bfunction\b|\bclass\b|\bdef\b|\bimport\b|\bexport\b/i.test(source.content.slice(0, 5000));
+      return isTechnical 
+        ? { ...this.PROFILES.pdf_technical, profile: "pdf_technical" }
+        : { ...this.PROFILES.pdf_general, profile: "pdf_general" };
+    }
+
+    // Word 문서
+    if (fileType.includes("word") || fileType.includes("docx") || 
+        fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+      return { ...this.PROFILES.docx, profile: "docx" };
+    }
+
+    // 마크다운
+    if (fileName.endsWith(".md") || fileName.endsWith(".markdown")) {
+      return { ...this.PROFILES.markdown, profile: "markdown" };
+    }
+
+    // 소스 코드
+    const codeExtensions = [".js", ".ts", ".py", ".java", ".cpp", ".c", ".go", ".rs", ".tsx", ".jsx"];
+    if (codeExtensions.some(ext => fileName.endsWith(ext))) {
+      return { ...this.PROFILES.code, profile: "code" };
+    }
+
+    // 일반 텍스트
+    if (source.type === "TEXT" || fileName.endsWith(".txt")) {
+      return contentLength > 10000
+        ? { ...this.PROFILES.text_long, profile: "text_long" }
+        : { ...this.PROFILES.text_short, profile: "text_short" };
+    }
+
+    // 기본값
+    return { ...this.PROFILES.default, profile: "default" };
+  }
+
+  /**
+   * 관리자 설정된 PipelineConfig 조회 및 적용
+   */
+  static async getAdminConfig(notebookId?: string) {
+    try {
+      // 노트북별 설정 우선, 없으면 기본(isDefault) 설정
+      const config = await prisma.pipelineConfig.findFirst({
+        where: {
+          isActive: true,
+          OR: [
+            { notebookId: notebookId || undefined },
+            { isDefault: true },
+          ],
+        },
+        orderBy: [
+          { notebookId: "desc" }, // 노트북별 설정 우선
+          { isDefault: "desc" },
+        ],
+      });
+
+      if (config) {
+        return {
+          chunkSize: config.chunkSize,
+          overlap: config.chunkOverlap,
+          profile: `admin:${config.name}`,
+        };
+      }
+    } catch {
+      // PipelineConfig 테이블이 없거나 에러 시 무시
+    }
+    return null;
+  }
 }
 
 export class ProcessingPipeline {
@@ -84,10 +248,44 @@ export class ProcessingPipeline {
         data: { contentHash },
       });
 
-      // Step 3: Chunk the content
+      // Step 3: Determine optimal chunking settings
+      let chunkSize = options.chunkSize;
+      let chunkOverlap = options.chunkOverlap;
+      let optimizationProfile = "manual";
+
+      // 자동 최적화 (옵션이 명시되지 않은 경우)
+      if (options.autoOptimize !== false && (!chunkSize || !chunkOverlap)) {
+        // 관리자 설정 우선
+        const adminConfig = await SmartPipelineOptimizer.getAdminConfig(source.notebookId);
+        
+        if (adminConfig) {
+          chunkSize = chunkSize || adminConfig.chunkSize;
+          chunkOverlap = chunkOverlap || adminConfig.overlap;
+          optimizationProfile = adminConfig.profile;
+        } else {
+          // 스마트 자동 최적화
+          const smartSettings = SmartPipelineOptimizer.getOptimalSettings({
+            type: source.type,
+            fileType: source.fileType,
+            originalName: source.originalName,
+            content: normalizedContent,
+          });
+          chunkSize = chunkSize || smartSettings.chunkSize;
+          chunkOverlap = chunkOverlap || smartSettings.overlap;
+          optimizationProfile = `smart:${smartSettings.profile}`;
+        }
+      }
+
+      // 기본값 폴백
+      chunkSize = chunkSize || 512;
+      chunkOverlap = chunkOverlap || 64;
+
+      console.log(`[Pipeline] Processing ${source.title} with profile: ${optimizationProfile} (chunk: ${chunkSize}, overlap: ${chunkOverlap})`);
+
+      // Step 4: Chunk the content
       const chunks = ChunkingService.chunk(normalizedContent, {
-        maxChunkSize: options.chunkSize || 1000,
-        overlap: options.chunkOverlap || 100,
+        maxChunkSize: chunkSize,
+        overlap: chunkOverlap,
       });
 
       // Step 4: Generate embeddings in batch

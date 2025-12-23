@@ -20,6 +20,8 @@ import {
   Zap,
   Database,
   Edit2,
+  Link2,
+  Eye,
 } from "lucide-react";
 
 interface PipelineConfig {
@@ -66,10 +68,10 @@ const CHUNKING_STRATEGIES = [
   { value: "SEMANTIC", label: "의미 단위" },
 ];
 
-const EMBEDDING_MODELS = [
+// 기본 임베딩 모델 (API에서 불러오기 전 또는 실패 시 폴백)
+const DEFAULT_EMBEDDING_MODELS = [
   { value: "text-embedding-ada-002", label: "OpenAI Ada 002", dimension: 1536 },
   { value: "text-embedding-3-small", label: "OpenAI 3 Small", dimension: 1536 },
-  { value: "text-embedding-3-large", label: "OpenAI 3 Large", dimension: 3072 },
 ];
 
 const INDEX_TYPES = [
@@ -85,6 +87,7 @@ export default function AdminPipelinePage() {
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"configs" | "jobs">("configs");
+  const [embeddingModels, setEmbeddingModels] = useState(DEFAULT_EMBEDDING_MODELS);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -264,10 +267,55 @@ export default function AdminPipelinePage() {
     }
   };
 
+  // 등록된 임베딩 모델 목록 가져오기
+  const fetchEmbeddingModels = async () => {
+    try {
+      const res = await fetch("/api/embedding-models");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      
+      interface EmbeddingModelItem {
+        id: string;
+        name: string;
+        provider: string;
+        modelId: string;
+        dimension: number;
+        isActive: boolean;
+        isDefault: boolean;
+      }
+
+      const activeModels = (data.models || [])
+        .filter((m: EmbeddingModelItem) => m.isActive)
+        .map((m: EmbeddingModelItem) => ({
+          value: m.modelId,
+          label: `${m.name || m.modelId} (${m.provider})${m.isDefault ? ' ⭐ 기본' : ''}`,
+          dimension: m.dimension || 1536,
+          isDefault: m.isDefault,
+        }));
+
+      // 기본 모델을 먼저 정렬
+      activeModels.sort((a: { isDefault?: boolean }, b: { isDefault?: boolean }) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+
+      if (activeModels.length > 0) {
+        setEmbeddingModels(activeModels);
+        const defaultModel = activeModels.find((m: { isDefault?: boolean }) => m.isDefault) || activeModels[0];
+        if (!editingId && defaultModel) {
+          setFormData(prev => ({ 
+            ...prev, 
+            embeddingModel: defaultModel.value, 
+            embeddingDimension: defaultModel.dimension 
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch embedding models:", error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchConfigs(), fetchJobs()]);
+      await Promise.all([fetchConfigs(), fetchJobs(), fetchEmbeddingModels()]);
       setLoading(false);
     };
     loadData();
@@ -422,7 +470,69 @@ export default function AdminPipelinePage() {
             </p>
           </div>
         </div>
+        
+        {/* Quick Access Buttons */}
+        <div style={{ display: "flex", gap: "8px" }}>
+          <Link href="/dashboard/admin/notebooks/chunks">
+            <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Layers style={{ width: "14px", height: "14px" }} />
+              청킹 시각화
+            </Button>
+          </Link>
+          <Link href="/dashboard/admin/notebooks/rag-trace">
+            <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Link2 style={{ width: "14px", height: "14px" }} />
+              RAG 추적
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Smart Pipeline Info Banner */}
+      <Card style={{ padding: "20px", background: "linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(147, 51, 234, 0.05) 100%)", border: "1px solid rgba(37, 99, 235, 0.2)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
+          <div style={{ padding: "12px", background: "rgba(37, 99, 235, 0.1)", borderRadius: "12px" }}>
+            <Zap style={{ width: "24px", height: "24px", color: "var(--color-primary)" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>
+              🧠 스마트 파이프라인 자동 최적화
+            </h3>
+            <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "16px", lineHeight: 1.6 }}>
+              문서 업로드 시 <strong>파일 유형, 크기, 내용</strong>을 자동 분석하여 최적의 청킹 및 임베딩 설정을 적용합니다. 
+              관리자가 별도 설정을 하지 않아도 문서별 최적 성능을 보장합니다.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+              <div style={{ padding: "12px", background: "var(--bg-primary)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                <h4 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>📋 적용 우선순위</h4>
+                <ol style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0, paddingLeft: "16px", lineHeight: 1.8 }}>
+                  <li><strong>관리자 설정</strong> - 아래에서 생성한 파이프라인 설정 (기본값 설정 시)</li>
+                  <li><strong>스마트 자동 감지</strong> - 문서 유형별 최적화 프로필 적용</li>
+                  <li><strong>시스템 기본값</strong> - 청크 512자, 오버랩 64자</li>
+                </ol>
+              </div>
+
+              <div style={{ padding: "12px", background: "var(--bg-primary)", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+                <h4 style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "8px" }}>📊 자동 감지 프로필</h4>
+                <div style={{ fontSize: "11px", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>📄 기술 PDF (50KB+)</span><span>1024 / 128</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>📑 일반 PDF</span><span>768 / 100</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>📝 Word 문서</span><span>512 / 64</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>💻 소스 코드</span><span>600 / 100</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>📋 마크다운</span><span>500 / 50</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>🌐 웹 페이지</span><span>600 / 75</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: "12px", color: "var(--text-secondary)", padding: "8px 12px", background: "rgba(245, 158, 11, 0.1)", borderRadius: "6px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+              💡 <strong>Tip:</strong> 아래에서 &quot;기본 설정으로 지정&quot; 체크 시 해당 설정이 모든 문서에 우선 적용됩니다. 
+              특정 노트북만 다른 설정을 원하면 노트북별 설정을 생성하세요.
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--border-color)" }}>
@@ -533,8 +643,8 @@ export default function AdminPipelinePage() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                     <div>
                       <label style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>모델</label>
-                      <select value={formData.embeddingModel} onChange={(e) => { const model = EMBEDDING_MODELS.find((m) => m.value === e.target.value); setFormData({ ...formData, embeddingModel: e.target.value, embeddingDimension: model?.dimension || 1536 }); }} style={{ width: "100%", marginTop: "4px", padding: "8px 12px", border: "1px solid var(--border-color)", borderRadius: "6px", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "14px" }}>
-                        {EMBEDDING_MODELS.map((m) => (<option key={m.value} value={m.value}>{m.label}</option>))}
+                      <select value={formData.embeddingModel} onChange={(e) => { const model = embeddingModels.find((m: { value: string; dimension: number }) => m.value === e.target.value); setFormData({ ...formData, embeddingModel: e.target.value, embeddingDimension: model?.dimension || 1536 }); }} style={{ width: "100%", marginTop: "4px", padding: "8px 12px", border: "1px solid var(--border-color)", borderRadius: "6px", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: "14px" }}>
+                        {embeddingModels.map((m: { value: string; label: string }) => (<option key={m.value} value={m.value}>{m.label}</option>))}
                       </select>
                     </div>
                     <div>

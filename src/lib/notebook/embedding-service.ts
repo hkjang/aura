@@ -96,6 +96,7 @@ export class EmbeddingService {
 
   /**
    * Get embedding configuration from database (with caching)
+   * Priority: 1) EmbeddingModelConfig (isDefault=true), 2) SystemConfig, 3) Env vars, 4) Mock
    */
   private static async getConfig(): Promise<EmbeddingConfig> {
     // Return cached config if still valid
@@ -104,7 +105,27 @@ export class EmbeddingService {
     }
 
     try {
-      // Read from new EMBEDDING_* settings first
+      // Priority 1: Get default model from EmbeddingModelConfig table
+      const defaultModel = await prisma.embeddingModelConfig.findFirst({
+        where: { isDefault: true, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (defaultModel) {
+        const config: EmbeddingConfig = {
+          provider: defaultModel.provider as EmbeddingConfig["provider"],
+          model: defaultModel.modelId,
+          apiKey: defaultModel.apiKey || undefined,
+          baseUrl: defaultModel.baseUrl || undefined,
+        };
+        
+        this.configCache = config;
+        this.configCacheTime = Date.now();
+        console.log(`[EmbeddingService] Using default model: ${defaultModel.name} (${defaultModel.provider}/${defaultModel.modelId})`);
+        return config;
+      }
+
+      // Priority 2: Read from legacy EMBEDDING_* settings in SystemConfig
       const [providerConfig, modelConfig, apiKeyConfig, baseUrlConfig] = await Promise.all([
         prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_PROVIDER" } }),
         prisma.systemConfig.findUnique({ where: { key: "EMBEDDING_MODEL" } }),
@@ -126,7 +147,7 @@ export class EmbeddingService {
         return config;
       }
 
-      // Fallback to legacy settings
+      // Priority 3: Legacy settings (UPSTAGE_API_KEY)
       const upstageKey = await prisma.systemConfig.findUnique({
         where: { key: "UPSTAGE_API_KEY" },
       });
@@ -141,7 +162,7 @@ export class EmbeddingService {
         return config;
       }
 
-      // Check environment variables
+      // Priority 4: Check environment variables
       if (process.env.UPSTAGE_API_KEY) {
         return {
           provider: "upstage",

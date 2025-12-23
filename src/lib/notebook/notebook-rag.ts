@@ -311,4 +311,70 @@ ${context.context || "(참고할 자료가 없습니다)"}
 
     return qna.id;
   }
+
+  /**
+   * Save RAG trace for explainability analysis
+   */
+  static async saveRAGTrace(
+    notebookId: string,
+    userId: string,
+    originalQuery: string,
+    processedQuery: string | undefined,
+    answer: string,
+    citations: Citation[],
+    options: {
+      model?: string;
+      generationTime?: number;
+    } = {}
+  ): Promise<string> {
+    try {
+      // Get chunk quality scores if available
+      const chunkIds = citations.map(c => c.chunkId);
+      const chunks = await prisma.knowledgeChunk.findMany({
+        where: { id: { in: chunkIds } },
+        include: { source: true },
+      });
+
+      const chunkMap = new Map(chunks.map(c => [c.id, c]));
+
+      const trace = await prisma.rAGTrace.create({
+        data: {
+          notebookId,
+          userId,
+          originalQuery,
+          processedQuery,
+          answer,
+          model: options.model,
+          generationTime: options.generationTime,
+          totalChunks: citations.length,
+          usedChunks: citations.length, // All citations are used chunks
+          avgSimilarity: citations.length > 0
+            ? citations.reduce((sum, c) => sum + c.score, 0) / citations.length
+            : null,
+          chunks: {
+            create: citations.map((citation, index) => {
+              const chunk = chunkMap.get(citation.chunkId);
+              return {
+                chunkId: citation.chunkId,
+                rank: index + 1,
+                similarity: citation.score,
+                qualityScore: null, // Would need quality scorer integration
+                qualityGrade: null,
+                documentName: citation.sourceTitle,
+                documentType: chunk?.source?.type || null,
+                content: citation.content,
+                tokenCount: Math.ceil(citation.content.length / 4),
+                isUsedInAnswer: true,
+              };
+            }),
+          },
+        },
+      });
+
+      return trace.id;
+    } catch (error) {
+      console.error("Failed to save RAG trace:", error);
+      return "";
+    }
+  }
 }
