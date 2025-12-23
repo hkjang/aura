@@ -915,16 +915,38 @@ export default function NotebookChatPage() {
                           const blob = new Blob([byteArray], { type: "application/pdf" });
                           const blobUrl = URL.createObjectURL(blob);
                           
-                          // Extract first few words for search highlight
-                          const searchText = selectedCitation.content
-                            .substring(0, 50)
-                            .replace(/[^\w\s가-힣]/g, "")
-                            .trim();
+                          // Find page number from elements using citation text
+                          let targetPage = 1;
+                          const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
+                          
+                          if (sourcePreview.elements && Array.isArray(sourcePreview.elements) && citationText.length > 5) {
+                            // Try to find page by matching words from citation
+                            const citationWords = citationText.split(/\s+/).filter(w => w.length > 3).slice(0, 5);
+                            console.log("[PDF Page Match] Citation words:", citationWords);
+                            
+                            for (const element of sourcePreview.elements) {
+                              const elementText = String(element.text || "").toLowerCase();
+                              if (elementText.length < 5) continue;
+                              
+                              // Count matching words
+                              let matchCount = 0;
+                              for (const word of citationWords) {
+                                if (elementText.includes(word)) matchCount++;
+                              }
+                              
+                              // If 2+ words match, use this page
+                              if (matchCount >= 2 || (citationWords.length === 1 && matchCount === 1)) {
+                                targetPage = Number(element.page) || 1;
+                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount);
+                                break;
+                              }
+                            }
+                          }
                           
                           return (
                             <>
                               <iframe
-                                src={`${blobUrl}#search=${encodeURIComponent(searchText)}`}
+                                src={`${blobUrl}#page=${targetPage}`}
                                 style={{ 
                                   width: "100%", 
                                   height: "calc(100vh - 380px)", 
@@ -937,20 +959,27 @@ export default function NotebookChatPage() {
                               <div style={{
                                 marginTop: "8px",
                                 padding: "8px 12px",
-                                background: "rgba(239, 68, 68, 0.1)",
+                                background: "rgba(124, 58, 237, 0.1)",
                                 borderRadius: "6px",
-                                border: "1px solid rgba(239, 68, 68, 0.2)",
+                                border: "1px solid rgba(124, 58, 237, 0.2)",
                                 fontSize: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px",
                               }}>
-                                <span style={{ color: "#ef4444", fontWeight: 500 }}>📍 검색어:</span>
-                                <span style={{ color: "var(--text-secondary)", marginLeft: "8px" }}>
-                                  "{searchText}..."
+                                <span style={{ color: "var(--color-primary)", fontWeight: 500 }}>
+                                  📄 {targetPage}페이지
+                                </span>
+                                <span style={{ color: "var(--text-tertiary)" }}>|</span>
+                                <span style={{ color: "var(--text-secondary)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  "{selectedCitation.content.substring(0, 80)}..."
                                 </span>
                               </div>
                             </>
                           );
-                        } catch (e) {
-                          console.error("PDF rendering error:", e);
+                        } catch (e: unknown) {
+                          const errorMsg = e instanceof Error ? e.message : String(e);
+                          console.error("PDF rendering error:", errorMsg, e);
                           return (
                             <div style={{ 
                               padding: "20px", 
@@ -958,22 +987,29 @@ export default function NotebookChatPage() {
                               borderRadius: "8px",
                               textAlign: "center" 
                             }}>
-                              <p style={{ marginBottom: "12px", color: "var(--text-secondary)" }}>
-                                PDF 미리보기를 표시할 수 없습니다.
+                              <p style={{ marginBottom: "8px", color: "var(--text-secondary)" }}>
+                                PDF 미리보기 오류
+                              </p>
+                              <p style={{ marginBottom: "12px", color: "#ef4444", fontSize: "12px" }}>
+                                {errorMsg}
                               </p>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => {
-                                  const byteCharacters = atob(sourcePreview.pdfBase64 || "");
-                                  const byteNumbers = new Array(byteCharacters.length);
-                                  for (let i = 0; i < byteCharacters.length; i++) {
-                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                  try {
+                                    const byteCharacters = atob(sourcePreview.pdfBase64 || "");
+                                    const byteNumbers = new Array(byteCharacters.length);
+                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                      byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                    }
+                                    const byteArray = new Uint8Array(byteNumbers);
+                                    const blob = new Blob([byteArray], { type: "application/pdf" });
+                                    const url = URL.createObjectURL(blob);
+                                    window.open(url, "_blank");
+                                  } catch (err) {
+                                    alert("PDF를 열 수 없습니다: " + err);
                                   }
-                                  const byteArray = new Uint8Array(byteNumbers);
-                                  const blob = new Blob([byteArray], { type: "application/pdf" });
-                                  const url = URL.createObjectURL(blob);
-                                  window.open(url, "_blank");
                                 }}
                               >
                                 <ExternalLink style={{ width: 14, height: 14, marginRight: 6 }} />
