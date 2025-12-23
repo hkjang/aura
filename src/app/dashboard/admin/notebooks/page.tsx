@@ -329,6 +329,12 @@ export default function AdminNotebooksPage() {
               DSL
             </Button>
           </Link>
+          <Link href="/dashboard/admin/notebooks/quality">
+            <Button variant="outline" size="sm">
+              <BarChart3 style={{ width: "16px", height: "16px", marginRight: "8px" }} />
+              품질
+            </Button>
+          </Link>
           <Link href="/dashboard/admin/notebooks/policies">
             <Button variant="outline" size="sm">
               <Shield style={{ width: "16px", height: "16px", marginRight: "8px" }} />
