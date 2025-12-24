@@ -13,12 +13,18 @@ export interface ChunkResult {
   // Element-based metadata for PDF highlighting
   elementIds?: string[];  // Upstage element IDs this chunk came from
   page?: number;          // PDF page number
-  coordinates?: {         // Bounding box (normalized 0-1)
+  coordinates?: {         // First element bounding box (normalized 0-1)
     x: number;
     y: number;
     width: number;
     height: number;
   };
+  // All elements info for precise matching at display time
+  elementsInfo?: Array<{
+    id: string;
+    text: string;
+    coordinates?: { x: number; y: number; width: number; height: number };
+  }>;
 }
 
 // Upstage element structure for element-based chunking
@@ -332,11 +338,13 @@ export class ChunkingService {
     let currentChunk: {
       content: string;
       elementIds: string[];
+      elementsInfo: Array<{ id: string; text: string; coordinates?: { x: number; y: number; width: number; height: number } }>;
       page: number;
       coords: { x: number; y: number; width: number; height: number } | null;
     } = {
       content: "",
       elementIds: [],
+      elementsInfo: [],
       page: elements[0].page || 1,
       coords: null,
     };
@@ -364,6 +372,7 @@ export class ChunkingService {
           elementIds: currentChunk.elementIds,
           page: currentChunk.page,
           coordinates: currentChunk.coords || undefined,
+          elementsInfo: currentChunk.elementsInfo,
         });
         offset += currentChunk.content.length;
         
@@ -371,6 +380,7 @@ export class ChunkingService {
         currentChunk = {
           content: "",
           elementIds: [],
+          elementsInfo: [],
           page: element.page || 1,
           coords: null,
         };
@@ -383,29 +393,16 @@ export class ChunkingService {
       currentChunk.content += elementText;
       currentChunk.elementIds.push(element.id);
       
-      // Merge coordinates (expand bounding box to cover all elements in chunk)
-      if (element.coordinates) {
-        if (!currentChunk.coords) {
-          currentChunk.coords = { ...element.coordinates };
-        } else {
-          // Expand to cover both coordinates
-          const minX = Math.min(currentChunk.coords.x, element.coordinates.x);
-          const minY = Math.min(currentChunk.coords.y, element.coordinates.y);
-          const maxX = Math.max(
-            currentChunk.coords.x + currentChunk.coords.width,
-            element.coordinates.x + element.coordinates.width
-          );
-          const maxY = Math.max(
-            currentChunk.coords.y + currentChunk.coords.height,
-            element.coordinates.y + element.coordinates.height
-          );
-          currentChunk.coords = {
-            x: minX,
-            y: minY,
-            width: maxX - minX,
-            height: maxY - minY,
-          };
-        }
+      // Store element info for precise matching later
+      currentChunk.elementsInfo.push({
+        id: element.id,
+        text: elementText,
+        coordinates: element.coordinates,
+      });
+      
+      // Use first element's coordinates as default
+      if (element.coordinates && !currentChunk.coords) {
+        currentChunk.coords = { ...element.coordinates };
       }
     }
     
@@ -419,6 +416,7 @@ export class ChunkingService {
         elementIds: currentChunk.elementIds,
         page: currentChunk.page,
         coordinates: currentChunk.coords || undefined,
+        elementsInfo: currentChunk.elementsInfo,
       });
     }
     

@@ -292,6 +292,7 @@ export class ProcessingPipeline {
         elementIds?: string[];
         page?: number;
         coordinates?: { x: number; y: number; width: number; height: number };
+        elementsInfo?: Array<{ id: string; text: string; coordinates?: { x: number; y: number; width: number; height: number } }>;
       }[];
       
       let metadata: { elements?: Array<{ id: string; category?: string; text: string; page: number; coordinates?: { x: number; y: number; width: number; height: number } }> } | null = null;
@@ -366,6 +367,7 @@ export class ProcessingPipeline {
             page: chunk.page,
             coordinates: chunk.coordinates,
             elementIds: chunk.elementIds,
+            elementsInfo: chunk.elementsInfo,
           },
         });
       }

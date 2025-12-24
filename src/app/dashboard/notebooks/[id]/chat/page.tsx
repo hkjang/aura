@@ -838,25 +838,6 @@ export default function NotebookChatPage() {
               </div>
             </div>
 
-            {/* Citation Snippet */}
-            <div style={{ marginBottom: "16px" }}>
-              <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "8px" }}>
-                인용된 내용
-              </p>
-              <div
-                style={{
-                  padding: "12px 16px",
-                  background: "rgba(124, 58, 237, 0.05)",
-                  borderLeft: "3px solid var(--color-primary)",
-                  borderRadius: "0 8px 8px 0",
-                  fontSize: "14px",
-                  lineHeight: 1.7,
-                  color: "var(--text-primary)",
-                }}
-              >
-                {selectedCitation.content}
-              </div>
-            </div>
 
             {/* Full Source Content */}
             <div>
@@ -921,19 +902,56 @@ export default function NotebookChatPage() {
                           let targetCoords: {x: number; y: number; width: number; height: number} | null = 
                             (selectedCitation as { coordinates?: typeof targetCoords })?.coordinates || null;
                           
+                          // Precise matching: Use elementsInfo to find the best matching element
+                          const elementsInfo = (selectedCitation as { elementsInfo?: Array<{ id: string; text: string; coordinates?: typeof targetCoords }> })?.elementsInfo;
+                          if (elementsInfo && elementsInfo.length > 0) {
+                            const citationText = (selectedCitation?.content || "").substring(0, 150).toLowerCase();
+                            const citationWords = citationText
+                              .replace(/[.,!?;:'"()]/g, "")
+                              .split(/\s+/)
+                              .filter(w => w.length > 2);
+                            
+                            let bestMatch = { score: 0, coords: null as typeof targetCoords };
+                            
+                            for (const elem of elementsInfo) {
+                              if (!elem.text || !elem.coordinates) continue;
+                              const elemText = elem.text.toLowerCase();
+                              let matchCount = 0;
+                              for (const word of citationWords) {
+                                if (elemText.includes(word)) matchCount++;
+                              }
+                              if (matchCount > bestMatch.score) {
+                                bestMatch = { score: matchCount, coords: elem.coordinates };
+                              }
+                            }
+                            
+                            if (bestMatch.coords && bestMatch.score >= 2) {
+                              targetCoords = bestMatch.coords;
+                              console.log("[PDF Display] Precise match from elementsInfo - score:", bestMatch.score, "coords:", targetCoords);
+                            }
+                          }
+                          
                           console.log("[PDF Display] Citation page:", targetPage, "coords:", targetCoords);
                           
-                          // Fallback: If no stored page/coords, try element matching for older uploads
-                          if (targetPage === 1 && !targetCoords && sourcePreview.elements && Array.isArray(sourcePreview.elements)) {
-                            const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
-                            if (citationText.length > 5) {
-                              const citationWords = citationText
-                                .replace(/[.,!?;:'"()]/g, "")
+                          // Double fallback: If still no coords, try sourcePreview elements
+                          if (!targetCoords && sourcePreview.elements && Array.isArray(sourcePreview.elements)) {
+                            // Use full citation content for better matching
+                            const fullCitationText = (selectedCitation?.content || "").replace(/\.{3}$/, "").toLowerCase();
+                            if (fullCitationText.length > 5) {
+                              // Extract unique words for matching (remove duplicates)
+                              const allWords = fullCitationText
+                                .replace(/[.,!?;:'"()[\]{}]/g, " ")
                                 .split(/\s+/)
-                                .filter(w => w.length > 2)
-                                .slice(0, 8);
+                                .filter(w => w.length > 2);
+                              const uniqueWords = [...new Set(allWords)].slice(0, 12);
                               
-                              let bestMatch = { score: 0, page: 1, coords: null as typeof targetCoords };
+                              // Also extract a longer substring (first 50 chars) for exact matching
+                              const substring = fullCitationText.substring(0, 50).replace(/[.,!?;:'"()[\]{}]/g, " ").trim();
+                              
+                              console.log("[PDF Match] Unique words:", uniqueWords, "substring:", substring.substring(0, 30));
+                              
+                              // Find all elements with good scores
+                              const matches: Array<{ score: number; page: number; coords: typeof targetCoords; text: string }> = [];
                               
                               for (const element of sourcePreview.elements) {
                                 let rawText = "";
@@ -949,24 +967,40 @@ export default function NotebookChatPage() {
                                 const elementText = rawText.toLowerCase();
                                 if (elementText.length < 3) continue;
                                 
+                                // Method 1: Substring match (highest priority)
+                                if (elementText.includes(substring.substring(0, 30))) {
+                                  matches.push({
+                                    score: 100, // Highest score for substring match
+                                    page: Number(element.page) || 1,
+                                    coords: element.coordinates || null,
+                                    text: rawText.substring(0, 40),
+                                  });
+                                  continue;
+                                }
+                                
+                                // Method 2: Word match count
                                 let matchCount = 0;
-                                for (const word of citationWords) {
+                                for (const word of uniqueWords) {
                                   if (elementText.includes(word)) matchCount++;
                                 }
                                 
-                                if (matchCount > bestMatch.score) {
-                                  bestMatch = {
+                                if (matchCount >= 3 && element.coordinates) {
+                                  matches.push({
                                     score: matchCount,
                                     page: Number(element.page) || 1,
-                                    coords: element.coordinates || null,
-                                  };
+                                    coords: element.coordinates,
+                                    text: rawText.substring(0, 40),
+                                  });
                                 }
                               }
                               
-                              if (bestMatch.score >= 2) {
-                                targetPage = bestMatch.page;
-                                targetCoords = bestMatch.coords;
-                                console.log("[PDF Display] Fallback match - page:", targetPage, "coords:", targetCoords);
+                              // Sort by score descending and pick the best one
+                              if (matches.length > 0) {
+                                matches.sort((a, b) => b.score - a.score);
+                                const best = matches[0];
+                                targetPage = best.page;
+                                targetCoords = best.coords;
+                                console.log("[PDF Match] Best match - page:", best.page, "score:", best.score, "text:", best.text);
                               }
                             }
                           }
@@ -978,32 +1012,37 @@ export default function NotebookChatPage() {
                                   src={`${blobUrl}#page=${targetPage}`}
                                   style={{ 
                                     width: "100%", 
-                                    height: "calc(100vh - 380px)", 
-                                    minHeight: "400px",
+                                    height: "calc(100vh - 200px)", 
+                                    minHeight: "600px",
                                     borderRadius: "8px",
                                     border: "1px solid var(--border-color)",
                                   }}
                                   title="PDF Preview"
                                 />
                                 {/* Highlight Box Overlay */}
-                                {targetCoords && (
-                                  <div
-                                    style={{
-                                      position: "absolute",
-                                      // Upstage coordinates are normalized 0-1, use directly as percentage
-                                      left: `${targetCoords.x * 100}%`,
-                                      top: `${targetCoords.y * 100}%`,
-                                      width: `${targetCoords.width * 100}%`,
-                                      height: `${targetCoords.height * 100}%`,
-                                      border: "3px solid #ef4444",
-                                      background: "rgba(239, 68, 68, 0.2)",
-                                      borderRadius: "4px",
-                                      pointerEvents: "none",
-                                      zIndex: 10,
-                                      boxShadow: "0 0 10px rgba(239, 68, 68, 0.5)",
-                                    }}
-                                  />
-                                )}
+                                {targetCoords && (() => {
+                                  // Use original coordinates with offset
+                                  console.log("[PDF Highlight] Coords:", targetCoords);
+                                  // Adjust Y position for PDF viewer alignment
+                                  const adjustedTop = targetCoords.y * 100 + 16; // +16% offset
+                                  return (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        left: `${targetCoords.x * 100}%`,
+                                        top: `${adjustedTop}%`,
+                                        width: `${targetCoords.width * 100}%`,
+                                        height: `${targetCoords.height * 100}%`,
+                                        border: "3px solid #ef4444",
+                                        background: "rgba(239, 68, 68, 0.2)",
+                                        borderRadius: "4px",
+                                        pointerEvents: "none",
+                                        zIndex: 10,
+                                        boxShadow: "0 0 10px rgba(239, 68, 68, 0.5)",
+                                      }}
+                                    />
+                                  );
+                                })()}
                               </div>
                               <div style={{
                                 marginTop: "8px",
@@ -1145,6 +1184,26 @@ export default function NotebookChatPage() {
                   "원문 불러오기" 버튼을 클릭하세요
                 </div>
               )}
+            </div>
+
+            {/* Citation Snippet - Moved below Full Source */}
+            <div style={{ marginTop: "16px" }}>
+              <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)", marginBottom: "8px" }}>
+                인용된 내용
+              </p>
+              <div
+                style={{
+                  padding: "12px 16px",
+                  background: "rgba(124, 58, 237, 0.05)",
+                  borderLeft: "3px solid var(--color-primary)",
+                  borderRadius: "0 8px 8px 0",
+                  fontSize: "14px",
+                  lineHeight: 1.7,
+                  color: "var(--text-primary)",
+                }}
+              >
+                {selectedCitation.content}
+              </div>
             </div>
           </div>
         </div>

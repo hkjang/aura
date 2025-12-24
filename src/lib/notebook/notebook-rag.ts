@@ -21,6 +21,12 @@ export interface Citation {
     width: number;
     height: number;
   };
+  // All elements in this chunk for precise matching
+  elementsInfo?: Array<{
+    id: string;
+    text: string;
+    coordinates?: { x: number; y: number; width: number; height: number };
+  }>;
 }
 
 export interface RAGContext {
@@ -125,6 +131,7 @@ export class NotebookRAG {
         // Element-based metadata for PDF highlighting
         page: result.metadata?.page as number | undefined,
         coordinates: result.metadata?.coordinates as { x: number; y: number; width: number; height: number } | undefined,
+        elementsInfo: result.metadata?.elementsInfo as Array<{ id: string; text: string; coordinates?: { x: number; y: number; width: number; height: number } }> | undefined,
       });
     }
 
