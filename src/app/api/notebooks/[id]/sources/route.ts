@@ -344,23 +344,47 @@ async function parseWithUpstage(file: File): Promise<UpstageParseResult> {
   // Extract elements with coordinates
   const elements: UpstageElement[] = [];
   
-  // Parse elements from the response (Upstage returns elements array)
+  // Parse elements from the response (Upstage API v2.0 format)
   if (result.elements && Array.isArray(result.elements)) {
     console.log("[Upstage] First raw element keys:", Object.keys(result.elements[0] || {}));
+    console.log("[Upstage] First element sample:", JSON.stringify(result.elements[0]).substring(0, 300));
+    
     for (const el of result.elements) {
+      // Extract text from content object (html -> strip tags)
+      let textContent = "";
+      if (el.content) {
+        textContent = el.content.text || el.content.markdown || "";
+        if (!textContent && el.content.html) {
+          textContent = el.content.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        }
+      }
+      
+      // Parse coordinates from 4-point array format (normalized 0-1)
+      let coords: {x: number; y: number; width: number; height: number} | undefined;
+      if (el.coordinates && Array.isArray(el.coordinates) && el.coordinates.length >= 4) {
+        // coordinates is array of 4 points: [top-left, top-right, bottom-right, bottom-left]
+        const topLeft = el.coordinates[0];
+        const bottomRight = el.coordinates[2];
+        coords = {
+          x: topLeft.x,
+          y: topLeft.y,
+          width: bottomRight.x - topLeft.x,
+          height: bottomRight.y - topLeft.y,
+        };
+      }
+      
       elements.push({
-        id: el.id || String(elements.length),
+        id: String(el.id ?? elements.length),
         category: el.category || "text",
-        text: el.text || el.content || "",
+        text: textContent,
         page: el.page || 1,
-        coordinates: el.bounding_box ? {
-          x: el.bounding_box.x || el.bounding_box[0] || 0,
-          y: el.bounding_box.y || el.bounding_box[1] || 0,
-          width: el.bounding_box.width || (el.bounding_box[2] - el.bounding_box[0]) || 0,
-          height: el.bounding_box.height || (el.bounding_box[3] - el.bounding_box[1]) || 0,
-        } : undefined,
+        coordinates: coords,
       });
     }
+    
+    // Log coordinates info
+    const withCoords = elements.filter(e => e.coordinates);
+    console.log(`[Upstage] Elements: ${elements.length}, with coords: ${withCoords.length}`);
   }
   
   // Extract text content, prioritizing plain text over HTML

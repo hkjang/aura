@@ -926,9 +926,12 @@ export default function NotebookChatPage() {
                               .replace(/[.,!?;:'"()]/g, "")
                               .split(/\s+/)
                               .filter(w => w.length > 2)
-                              .slice(0, 5);
+                              .slice(0, 8); // Use more words for better matching
                             console.log("[PDF Page Match] Citation words:", citationWords);
                             console.log("[PDF Page Match] Elements count:", sourcePreview.elements.length);
+                            
+                            // Find best matching element (highest score)
+                            let bestMatch = { score: 0, page: 1, coords: null as typeof targetCoords, text: "" };
                             
                             for (const element of sourcePreview.elements) {
                               // Extract text from element - handle both string and object formats
@@ -953,16 +956,23 @@ export default function NotebookChatPage() {
                                 if (elementText.includes(word)) matchCount++;
                               }
                               
-                              // If 2+ words match or 40%+ match, use this page
-                              if (matchCount >= 2 || (citationWords.length > 0 && matchCount / citationWords.length >= 0.4)) {
-                                targetPage = Number(element.page) || 1;
-                                // Store coordinates for highlight box
-                                if (element.coordinates) {
-                                  targetCoords = element.coordinates;
-                                }
-                                console.log("[PDF Page Match] Found page:", targetPage, "matches:", matchCount, "coords:", targetCoords);
-                                break;
+                              // Track best match
+                              if (matchCount > bestMatch.score) {
+                                bestMatch = {
+                                  score: matchCount,
+                                  page: Number(element.page) || 1,
+                                  coords: element.coordinates || null,
+                                  text: elementText.substring(0, 60),
+                                };
                               }
+                            }
+                            
+                            // Use best match if score is good enough
+                            if (bestMatch.score >= 2 || (citationWords.length > 0 && bestMatch.score / citationWords.length >= 0.3)) {
+                              targetPage = bestMatch.page;
+                              targetCoords = bestMatch.coords;
+                              console.log("[PDF Page Match] Best match - page:", targetPage, "score:", bestMatch.score, "/", citationWords.length, "text:", bestMatch.text);
+                              console.log("[PDF Page Match] Coords:", targetCoords);
                             }
                           } else {
                             console.log("[PDF Page Match] No elements available. Elements:", sourcePreview.elements);
@@ -987,17 +997,17 @@ export default function NotebookChatPage() {
                                   <div
                                     style={{
                                       position: "absolute",
-                                      // PDF coordinates are typically in points (72 dpi), scale to percentage
-                                      left: `${(targetCoords.x / 612) * 100}%`,
-                                      top: `${(targetCoords.y / 792) * 100}%`,
-                                      width: `${(targetCoords.width / 612) * 100}%`,
-                                      height: `${(targetCoords.height / 792) * 100}%`,
+                                      // Upstage coordinates are normalized 0-1, use directly as percentage
+                                      left: `${targetCoords.x * 100}%`,
+                                      top: `${targetCoords.y * 100}%`,
+                                      width: `${targetCoords.width * 100}%`,
+                                      height: `${targetCoords.height * 100}%`,
                                       border: "3px solid #ef4444",
-                                      background: "rgba(239, 68, 68, 0.15)",
+                                      background: "rgba(239, 68, 68, 0.2)",
                                       borderRadius: "4px",
                                       pointerEvents: "none",
                                       zIndex: 10,
-                                      animation: "pulse 2s infinite",
+                                      boxShadow: "0 0 10px rgba(239, 68, 68, 0.5)",
                                     }}
                                   />
                                 )}
