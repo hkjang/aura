@@ -13,20 +13,18 @@ export function VoiceInputButton({ onTranscript, disabled = false }: VoiceInputB
   const [isSupported, setIsSupported] = useState(true);
 
   const startListening = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const windowAny = window as any;
+    
+    if (!windowAny.webkitSpeechRecognition && !windowAny.SpeechRecognition) {
       setIsSupported(false);
       alert("이 브라우저는 음성 인식을 지원하지 않습니다.");
       return;
     }
 
-    const SpeechRecognition = (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition; webkitSpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition 
-      || (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = windowAny.SpeechRecognition || windowAny.webkitSpeechRecognition;
     
-    if (!SpeechRecognition) {
-      setIsSupported(false);
-      return;
-    }
-
     const recognition = new SpeechRecognition();
     recognition.lang = "ko-KR";
     recognition.continuous = false;
@@ -36,7 +34,8 @@ export function VoiceInputButton({ onTranscript, disabled = false }: VoiceInputB
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       onTranscript(transcript);
     };
