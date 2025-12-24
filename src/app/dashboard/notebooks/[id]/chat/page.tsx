@@ -35,7 +35,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { MessageSearch, ThemeToggle } from "@/components/notebook";
+import { MessageSearch, ThemeToggle, ShareButton } from "@/components/notebook";
 
 interface Citation {
   sourceId: string;
@@ -580,6 +580,9 @@ export default function NotebookChatPage() {
             />
           )}
           <ThemeToggle />
+          {messages.length > 0 && (
+            <ShareButton notebookId={notebookId} />
+          )}
           {messages.length > 0 && (
             <Button
               variant="outline"

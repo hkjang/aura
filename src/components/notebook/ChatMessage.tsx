@@ -103,6 +103,19 @@ export function ChatMessage({
   copied,
 }: ChatMessageProps) {
   const isExpanded = expandedThinking.has(message.id);
+  
+  // Format timestamp
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    
+    if (mins < 1) return "마지막";
+    if (mins < 60) return `${mins}분 전`;
+    if (hours < 24) return `${hours}시간 전`;
+    return new Date(date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   if (message.role === "user") {
     return (
@@ -129,6 +142,9 @@ export function ChatMessage({
             {message.content}
           </p>
         </div>
+        <span style={{ fontSize: "11px", color: "var(--text-tertiary)", marginTop: "4px", marginRight: "4px" }}>
+          {formatTime(message.timestamp)}
+        </span>
       </div>
     );
   }
