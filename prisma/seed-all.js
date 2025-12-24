@@ -11,6 +11,7 @@ const seedFiles = [
     'seed.js',           // 기본 Admin 사용자 및 시스템 설정
     'seed-admin.ts',     // 관리자 설정
     'seed-models.ts',    // AI 모델 설정
+    'seed-embedding-models.js', // 임베딩 모델 설정
     'seed-cost.ts',      // 비용 설정
     'seed-deployments.ts', // 배포 설정
     'seed-knowledge.ts', // 지식 문서
