@@ -24,6 +24,10 @@ import {
   Brain,
   Link2,
   Layers,
+  Square,
+  Download,
+  RotateCcw,
+  WifiOff,
 } from "lucide-react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
@@ -47,7 +51,7 @@ interface SourcePreview {
   pdfBase64?: string;
   elements?: Array<{
     id: string;
-    text: string;
+    text: string | { text?: string; markdown?: string; html?: string };
     page: number;
     coordinates?: { x: number; y: number; width: number; height: number };
   }>;
@@ -84,6 +88,21 @@ export default function NotebookChatPage() {
   const [loadingSource, setLoadingSource] = useState(false);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
   const [copied, setCopied] = useState(false);
+  
+  // Streaming abort controller
+  const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Regeneration state
+  const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  
+  // Feedback state
+  const [feedbackGiven, setFeedbackGiven] = useState<Set<string>>(new Set());
+  
+  // Offline detection
+  const [isOffline, setIsOffline] = useState(false);
+  
+  // PDF blob URL tracking for cleanup
+  const pdfBlobUrlRef = useRef<string | null>(null);
   
   // Resizable panel state
   const [panelWidth, setPanelWidth] = useState(55); // percentage
@@ -198,11 +217,128 @@ export default function NotebookChatPage() {
     }
   }, [selectedCitation, notebookId]);
 
+  // Cleanup PDF blob URL when citation panel closes
+  useEffect(() => {
+    if (!selectedCitation && pdfBlobUrlRef.current) {
+      URL.revokeObjectURL(pdfBlobUrlRef.current);
+      pdfBlobUrlRef.current = null;
+    }
+  }, [selectedCitation]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrlRef.current) {
+        URL.revokeObjectURL(pdfBlobUrlRef.current);
+      }
+    };
+  }, []);
+
   const clearChat = () => {
     if (confirm("대화 내역을 모두 삭제하시겠습니까?")) {
       setMessages([]);
       localStorage.removeItem(`notebook-chat-${notebookId}`);
     }
+  };
+
+  // Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    setIsOffline(!navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to close citation panel
+      if (e.key === 'Escape' && selectedCitation) {
+        setSelectedCitation(null);
+        setSourcePreview(null);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCitation]);
+
+  // Stop streaming
+  const stopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setStreaming(false);
+    }
+  };
+
+  // Regenerate last response
+  const regenerateLastResponse = () => {
+    if (!lastUserMessage || streaming) return;
+    
+    // Remove last assistant message
+    setMessages(prev => {
+      const newMessages = [...prev];
+      if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
+        newMessages.pop();
+      }
+      if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'user') {
+        newMessages.pop();
+      }
+      return newMessages;
+    });
+    
+    // Resubmit
+    setTimeout(() => handleSubmit(lastUserMessage), 100);
+  };
+
+  // Feedback handler
+  const handleFeedback = async (messageId: string, type: 'up' | 'down') => {
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          notebookId,
+          feedbackType: type,
+        }),
+      });
+      setFeedbackGiven(prev => new Set([...prev, messageId]));
+    } catch (e) {
+      console.error('Feedback error:', e);
+    }
+  };
+
+  // Export chat
+  const handleExportChat = () => {
+    const content = messages.map(m => {
+      const prefix = m.role === 'user' ? '👤 사용자' : '🤖 AI';
+      return `${prefix}:\n${m.content}\n`;
+    }).join('\n---\n\n');
+    
+    const blob = new Blob([`# ${notebook?.name || 'Notebook'} 대화 내역\n\n${content}`], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${notebook?.name || 'export'}-${new Date().toISOString().slice(0,10)}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Auto-resize textarea
+  const adjustTextareaHeight = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    setInput(textarea.value);
   };
 
   const handleSubmit = async (question?: string) => {
@@ -211,6 +347,16 @@ export default function NotebookChatPage() {
 
     setInput("");
     setStreaming(true);
+    setLastUserMessage(q);
+
+    // Create abort controller
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
 
     // Add user message
     const userMessage: Message = {
@@ -246,6 +392,7 @@ export default function NotebookChatPage() {
           model: selectedModel?.modelId,
           provider: selectedModel?.provider,
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -292,16 +439,27 @@ export default function NotebookChatPage() {
         }
       }
     } catch (error) {
-      console.error("Query error:", error);
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." }
-            : m
-        )
-      );
+      if ((error as Error).name === 'AbortError') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: m.content + "\n\n*(응답이 중단되었습니다)*" }
+              : m
+          )
+        );
+      } else {
+        console.error("Query error:", error);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: "죄송합니다. 오류가 발생했습니다. 다시 시도해주세요." }
+              : m
+          )
+        );
+      }
     } finally {
       setStreaming(false);
+      abortControllerRef.current = null;
       inputRef.current?.focus();
     }
   };
@@ -412,6 +570,17 @@ export default function NotebookChatPage() {
         </div>
 
         <div style={{ display: "flex", gap: "8px" }}>
+          {messages.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportChat}
+              title="대화 내보내기"
+            >
+              <Download style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+              내보내기
+            </Button>
+          )}
           <Link href="/dashboard/admin/notebooks/rag-trace">
             <Button variant="outline" size="sm">
               <Link2 style={{ width: "14px", height: "14px", marginRight: "6px" }} />
@@ -431,9 +600,82 @@ export default function NotebookChatPage() {
         </div>
       </div>
 
+      {/* Offline Alert */}
+      {isOffline && (
+        <div
+          style={{
+            padding: "10px 24px",
+            background: "linear-gradient(90deg, #fef3c7 0%, #fde68a 100%)",
+            borderBottom: "1px solid #f59e0b",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <WifiOff style={{ width: "16px", height: "16px", color: "#b45309" }} />
+          <span style={{ fontSize: "13px", color: "#92400e", fontWeight: 500 }}>
+            오프라인 상태입니다. 인터넷 연결을 확인해주세요.
+          </span>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
-        {messages.length === 0 ? (
+        {!notebook ? (
+          /* Loading Skeleton */
+          <div style={{ maxWidth: "600px", margin: "0 auto", paddingTop: "40px" }}>
+            <div style={{ textAlign: "center", marginBottom: "32px" }}>
+              <div
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.5s infinite",
+                  margin: "0 auto 16px",
+                }}
+              />
+              <div
+                style={{
+                  width: "200px",
+                  height: "24px",
+                  borderRadius: "8px",
+                  background: "linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.5s infinite",
+                  margin: "0 auto 8px",
+                }}
+              />
+              <div
+                style={{
+                  width: "280px",
+                  height: "16px",
+                  borderRadius: "6px",
+                  background: "linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%)",
+                  backgroundSize: "200% 100%",
+                  animation: "shimmer 1.5s infinite",
+                  margin: "0 auto",
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%)",
+                    backgroundSize: "200% 100%",
+                    animation: "shimmer 1.5s infinite",
+                    height: "60px",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div style={{ maxWidth: "600px", margin: "0 auto", paddingTop: "40px" }}>
             <div style={{ textAlign: "center", marginBottom: "32px" }}>
               <div
@@ -701,7 +943,7 @@ export default function NotebookChatPage() {
 
                       {/* Actions */}
                       {message.content && (
-                        <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -715,6 +957,50 @@ export default function NotebookChatPage() {
                             )}
                             복사
                           </Button>
+                          
+                          {/* Feedback buttons */}
+                          {!feedbackGiven.has(message.id) ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFeedback(message.id, 'up')}
+                                style={{ fontSize: "12px", padding: "4px 8px", height: "auto" }}
+                                title="도움이 됐어요"
+                              >
+                                <ThumbsUp style={{ width: "12px", height: "12px", marginRight: "4px" }} />
+                                좋아요
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFeedback(message.id, 'down')}
+                                style={{ fontSize: "12px", padding: "4px 8px", height: "auto" }}
+                                title="개선이 필요해요"
+                              >
+                                <ThumbsDown style={{ width: "12px", height: "12px", marginRight: "4px" }} />
+                                아쉬워요
+                              </Button>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "var(--text-tertiary)", padding: "4px 8px" }}>
+                              ✓ 피드백 감사합니다
+                            </span>
+                          )}
+                          
+                          {/* Regenerate button - only for last message */}
+                          {messages[messages.length - 1]?.id === message.id && !streaming && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={regenerateLastResponse}
+                              style={{ fontSize: "12px", padding: "4px 8px", height: "auto" }}
+                              title="응답 다시 생성"
+                            >
+                              <RotateCcw style={{ width: "12px", height: "12px", marginRight: "4px" }} />
+                              다시 생성
+                            </Button>
+                          )}
                         </div>
                       )}
                     </Card>
@@ -887,6 +1173,11 @@ export default function NotebookChatPage() {
                       {/* Create PDF blob URL and render in iframe */}
                       {(() => {
                         try {
+                          // Cleanup old blob URL before creating new one
+                          if (pdfBlobUrlRef.current) {
+                            URL.revokeObjectURL(pdfBlobUrlRef.current);
+                          }
+                          
                           const byteCharacters = atob(sourcePreview.pdfBase64 || "");
                           const byteNumbers = new Array(byteCharacters.length);
                           for (let i = 0; i < byteCharacters.length; i++) {
@@ -895,6 +1186,9 @@ export default function NotebookChatPage() {
                           const byteArray = new Uint8Array(byteNumbers);
                           const blob = new Blob([byteArray], { type: "application/pdf" });
                           const blobUrl = URL.createObjectURL(blob);
+                          
+                          // Track for cleanup
+                          pdfBlobUrlRef.current = blobUrl;
                           
                           // Use citation's stored page and coordinates when available (from element-based chunking)
                           // Fall back to element matching for older uploads without this metadata
@@ -951,7 +1245,7 @@ export default function NotebookChatPage() {
                               console.log("[PDF Match] Unique words:", uniqueWords, "substring:", substring.substring(0, 30));
                               
                               // Find all elements with good scores
-                              const matches: Array<{ score: number; page: number; coords: typeof targetCoords; text: string }> = [];
+                              const matches: Array<{ score: number; page: number; coords: { x: number; y: number; width: number; height: number } | null; text: string }> = [];
                               
                               for (const element of sourcePreview.elements) {
                                 let rawText = "";
@@ -1259,10 +1553,10 @@ export default function NotebookChatPage() {
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={adjustTextareaHeight}
               onKeyDown={handleKeyDown}
               placeholder="질문을 입력하세요..."
-              disabled={streaming}
+              disabled={streaming || isOffline}
               style={{
                 flex: 1,
                 border: "none",
@@ -1272,25 +1566,32 @@ export default function NotebookChatPage() {
                 lineHeight: 1.5,
                 color: "var(--text-primary)",
                 minHeight: "24px",
-                maxHeight: "120px",
+                maxHeight: "200px",
                 outline: "none",
               }}
               rows={1}
             />
-            <Button
-              onClick={() => handleSubmit()}
-              disabled={!input.trim() || streaming}
-              style={{ borderRadius: "12px", padding: "8px 16px" }}
-            >
-              {streaming ? (
-                <Loader2 style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite" }} />
-              ) : (
+            {streaming ? (
+              <Button
+                onClick={stopStreaming}
+                variant="destructive"
+                style={{ borderRadius: "12px", padding: "8px 16px" }}
+              >
+                <Square style={{ width: "14px", height: "14px", marginRight: "6px" }} />
+                중단
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleSubmit()}
+                disabled={!input.trim() || isOffline}
+                style={{ borderRadius: "12px", padding: "8px 16px" }}
+              >
                 <Send style={{ width: "16px", height: "16px" }} />
-              )}
-            </Button>
+              </Button>
+            )}
           </div>
           <p style={{ fontSize: "11px", color: "var(--text-tertiary)", textAlign: "center", marginTop: "8px" }}>
-            응답은 업로드된 문서를 기반으로 생성됩니다. 외부 정보는 포함되지 않습니다.
+            응답은 업로드된 문서를 기반으로 생성됩니다. 외부 정보는 포함되지 않습니다. | Esc: 패널 닫기
           </p>
         </div>
       </div>
@@ -1303,6 +1604,10 @@ export default function NotebookChatPage() {
         @keyframes slideInRight {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
+        }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
       `}</style>
     </div>
