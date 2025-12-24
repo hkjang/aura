@@ -16,6 +16,7 @@ import { FollowUpSuggestions } from "./follow-up-suggestions";
 import { PostProcessButtons } from "./post-process-buttons";
 import { ETAIndicator } from "@/components/ui/eta-indicator";
 import { UsageWarningSystem } from "./usage-warning-system";
+import { ThemeToggle, CharacterCounter, VoiceInputButton, KeyboardShortcutsButton, ToastContainer } from "@/components/notebook";
 
 export default function ChatInterface() {
   const router = useRouter();
@@ -447,6 +448,9 @@ export default function ChatInterface() {
             <History style={{ width: '18px', height: '18px' }} />
             대화 이력
           </button>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
         </div>
 
         {/* Messages Area */}
@@ -734,6 +738,18 @@ export default function ChatInterface() {
                   <ArrowUp style={{ width: '20px', height: '20px' }} />
                 )}
               </button>
+              
+              {/* Voice Input */}
+              <VoiceInputButton 
+                onTranscript={(text) => setInputValue(prev => prev + ' ' + text)}
+                disabled={isLoading}
+              />
+            </div>
+            
+            {/* Character Counter & Shortcuts */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+              <CharacterCounter value={inputValue} maxLength={4000} />
+              <KeyboardShortcutsButton />
             </div>
             
             <p style={{ 
@@ -771,6 +787,7 @@ export default function ChatInterface() {
         </div>
       )}
     </div>
+    <ToastContainer />
     </>
   );
 }
