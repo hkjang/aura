@@ -35,6 +35,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { MessageSearch, ThemeToggle } from "@/components/notebook";
 
 interface Citation {
   sourceId: string;
@@ -100,6 +101,9 @@ export default function NotebookChatPage() {
   
   // Offline detection
   const [isOffline, setIsOffline] = useState(false);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
   
   // PDF blob URL tracking for cleanup
   const pdfBlobUrlRef = useRef<string | null>(null);
@@ -569,7 +573,13 @@ export default function NotebookChatPage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {messages.length > 0 && (
+            <MessageSearch
+              onSearch={setSearchQuery}
+            />
+          )}
+          <ThemeToggle />
           {messages.length > 0 && (
             <Button
               variant="outline"
