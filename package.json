@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "tsx prisma/seed-admin.ts && tsx prisma/seed-knowledge.ts && tsx prisma/seed-cost.ts && tsx prisma/seed-deployments.ts && tsx prisma/seed-policies.ts"
+    "seed": "node prisma/seed-all.js",
+    "db:reset": "npx prisma migrate reset --force && npm run seed"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.88",
