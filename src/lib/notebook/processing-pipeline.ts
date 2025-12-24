@@ -283,10 +283,38 @@ export class ProcessingPipeline {
       console.log(`[Pipeline] Processing ${source.title} with profile: ${optimizationProfile} (chunk: ${chunkSize}, overlap: ${chunkOverlap})`);
 
       // Step 4: Chunk the content
-      const chunks = ChunkingService.chunk(normalizedContent, {
-        maxChunkSize: chunkSize,
-        overlap: chunkOverlap,
-      });
+      // Try element-based chunking for PDFs with Upstage elements
+      let chunks: {
+        content: string;
+        chunkIndex: number;
+        startOffset: number;
+        endOffset: number;
+        elementIds?: string[];
+        page?: number;
+        coordinates?: { x: number; y: number; width: number; height: number };
+      }[];
+      
+      let metadata: { elements?: Array<{ id: string; category?: string; text: string; page: number; coordinates?: { x: number; y: number; width: number; height: number } }> } | null = null;
+      try {
+        metadata = source.metadata ? JSON.parse(source.metadata as string) : null;
+      } catch {
+        metadata = null;
+      }
+      
+      if (source.fileType === "application/pdf" && metadata?.elements && Array.isArray(metadata.elements) && metadata.elements.length > 0) {
+        // Use element-based chunking for PDFs with Upstage elements
+        console.log(`[Pipeline] Using element-based chunking for PDF (${metadata.elements.length} elements)`);
+        chunks = ChunkingService.chunkByElements(metadata.elements, {
+          maxChunkSize: chunkSize,
+          overlap: chunkOverlap,
+        });
+      } else {
+        // Fallback to text-based chunking
+        chunks = ChunkingService.chunk(normalizedContent, {
+          maxChunkSize: chunkSize,
+          overlap: chunkOverlap,
+        });
+      }
 
       // Step 4: Generate embeddings in batch
       const chunkTexts = chunks.map(c => c.content);
@@ -334,6 +362,10 @@ export class ProcessingPipeline {
             sourceId,
             notebookId: source.notebookId,
             chunkIndex: chunk.chunkIndex,
+            // Element-based metadata for PDF highlighting
+            page: chunk.page,
+            coordinates: chunk.coordinates,
+            elementIds: chunk.elementIds,
           },
         });
       }

@@ -13,6 +13,14 @@ export interface Citation {
   chunkId: string;
   content: string;
   score: number;
+  // Element-based metadata for PDF highlighting
+  page?: number;
+  coordinates?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface RAGContext {
@@ -114,6 +122,9 @@ export class NotebookRAG {
         chunkId: result.id,
         content: result.content.substring(0, 200) + (result.content.length > 200 ? "..." : ""),
         score: result.score,
+        // Element-based metadata for PDF highlighting
+        page: result.metadata?.page as number | undefined,
+        coordinates: result.metadata?.coordinates as { x: number; y: number; width: number; height: number } | undefined,
       });
     }
 

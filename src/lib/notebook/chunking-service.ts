@@ -10,6 +10,29 @@ export interface ChunkResult {
   chunkIndex: number;
   startOffset: number;
   endOffset: number;
+  // Element-based metadata for PDF highlighting
+  elementIds?: string[];  // Upstage element IDs this chunk came from
+  page?: number;          // PDF page number
+  coordinates?: {         // Bounding box (normalized 0-1)
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+// Upstage element structure for element-based chunking
+export interface UpstageElement {
+  id: string;
+  category?: string;
+  text: string;
+  page: number;
+  coordinates?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface ChunkingOptions {
@@ -289,5 +312,117 @@ export class ChunkingService {
    */
   static getDSLEngine(): ChunkingDSLEngine {
     return chunkingDSLEngine;
+  }
+
+  /**
+   * Chunk by Upstage elements - preserves element boundaries for accurate PDF highlighting
+   * Groups small elements together until reaching maxChunkSize
+   */
+  static chunkByElements(
+    elements: UpstageElement[],
+    options: ChunkingOptions = {}
+  ): ChunkResult[] {
+    const opts = { ...DEFAULT_OPTIONS, ...options };
+    const chunks: ChunkResult[] = [];
+    
+    if (!elements || elements.length === 0) {
+      return [];
+    }
+    
+    let currentChunk: {
+      content: string;
+      elementIds: string[];
+      page: number;
+      coords: { x: number; y: number; width: number; height: number } | null;
+    } = {
+      content: "",
+      elementIds: [],
+      page: elements[0].page || 1,
+      coords: null,
+    };
+    
+    let chunkIndex = 0;
+    let offset = 0;
+    
+    for (const element of elements) {
+      const elementText = element.text?.trim() || "";
+      if (!elementText) continue;
+      
+      // Check if adding this element would exceed maxChunkSize
+      const wouldExceed = currentChunk.content.length + elementText.length + 1 > opts.maxChunkSize;
+      const pageChanged = element.page !== currentChunk.page;
+      
+      // Start new chunk if size exceeded or page changed
+      if ((wouldExceed && currentChunk.content.length >= opts.minChunkSize) || 
+          (pageChanged && currentChunk.content.length > 0)) {
+        // Save current chunk
+        chunks.push({
+          content: currentChunk.content.trim(),
+          chunkIndex: chunkIndex++,
+          startOffset: offset,
+          endOffset: offset + currentChunk.content.length,
+          elementIds: currentChunk.elementIds,
+          page: currentChunk.page,
+          coordinates: currentChunk.coords || undefined,
+        });
+        offset += currentChunk.content.length;
+        
+        // Start new chunk
+        currentChunk = {
+          content: "",
+          elementIds: [],
+          page: element.page || 1,
+          coords: null,
+        };
+      }
+      
+      // Add element to current chunk
+      if (currentChunk.content.length > 0) {
+        currentChunk.content += "\n";
+      }
+      currentChunk.content += elementText;
+      currentChunk.elementIds.push(element.id);
+      
+      // Merge coordinates (expand bounding box to cover all elements in chunk)
+      if (element.coordinates) {
+        if (!currentChunk.coords) {
+          currentChunk.coords = { ...element.coordinates };
+        } else {
+          // Expand to cover both coordinates
+          const minX = Math.min(currentChunk.coords.x, element.coordinates.x);
+          const minY = Math.min(currentChunk.coords.y, element.coordinates.y);
+          const maxX = Math.max(
+            currentChunk.coords.x + currentChunk.coords.width,
+            element.coordinates.x + element.coordinates.width
+          );
+          const maxY = Math.max(
+            currentChunk.coords.y + currentChunk.coords.height,
+            element.coordinates.y + element.coordinates.height
+          );
+          currentChunk.coords = {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+          };
+        }
+      }
+    }
+    
+    // Don't forget the last chunk
+    if (currentChunk.content.length > 0) {
+      chunks.push({
+        content: currentChunk.content.trim(),
+        chunkIndex: chunkIndex++,
+        startOffset: offset,
+        endOffset: offset + currentChunk.content.length,
+        elementIds: currentChunk.elementIds,
+        page: currentChunk.page,
+        coordinates: currentChunk.coords || undefined,
+      });
+    }
+    
+    console.log(`[ChunkingService] Created ${chunks.length} element-based chunks from ${elements.length} elements`);
+    return chunks;
   }
 }

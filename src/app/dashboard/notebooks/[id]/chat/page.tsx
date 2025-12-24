@@ -915,67 +915,60 @@ export default function NotebookChatPage() {
                           const blob = new Blob([byteArray], { type: "application/pdf" });
                           const blobUrl = URL.createObjectURL(blob);
                           
-                          // Find page number from elements using citation text
-                          let targetPage = 1;
-                          let targetCoords: {x: number; y: number; width: number; height: number} | null = null;
-                          const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
+                          // Use citation's stored page and coordinates when available (from element-based chunking)
+                          // Fall back to element matching for older uploads without this metadata
+                          let targetPage = (selectedCitation as { page?: number })?.page || 1;
+                          let targetCoords: {x: number; y: number; width: number; height: number} | null = 
+                            (selectedCitation as { coordinates?: typeof targetCoords })?.coordinates || null;
                           
-                          if (sourcePreview.elements && Array.isArray(sourcePreview.elements) && citationText.length > 5) {
-                            // Clean and extract words from citation (remove punctuation)
-                            const citationWords = citationText
-                              .replace(/[.,!?;:'"()]/g, "")
-                              .split(/\s+/)
-                              .filter(w => w.length > 2)
-                              .slice(0, 8); // Use more words for better matching
-                            console.log("[PDF Page Match] Citation words:", citationWords);
-                            console.log("[PDF Page Match] Elements count:", sourcePreview.elements.length);
-                            
-                            // Find best matching element (highest score)
-                            let bestMatch = { score: 0, page: 1, coords: null as typeof targetCoords, text: "" };
-                            
-                            for (const element of sourcePreview.elements) {
-                              // Extract text from element - handle both string and object formats
-                              let rawText = "";
-                              if (typeof element.text === "string") {
-                                rawText = element.text;
-                              } else if (element.text && typeof element.text === "object") {
-                                // Upstage format: { html, markdown, text }
-                                rawText = element.text.text || element.text.markdown || "";
-                                // If still empty, extract from HTML
-                                if (!rawText && element.text.html) {
-                                  rawText = element.text.html.replace(/<[^>]+>/g, " ").trim();
+                          console.log("[PDF Display] Citation page:", targetPage, "coords:", targetCoords);
+                          
+                          // Fallback: If no stored page/coords, try element matching for older uploads
+                          if (targetPage === 1 && !targetCoords && sourcePreview.elements && Array.isArray(sourcePreview.elements)) {
+                            const citationText = (selectedCitation?.content || "").substring(0, 100).toLowerCase();
+                            if (citationText.length > 5) {
+                              const citationWords = citationText
+                                .replace(/[.,!?;:'"()]/g, "")
+                                .split(/\s+/)
+                                .filter(w => w.length > 2)
+                                .slice(0, 8);
+                              
+                              let bestMatch = { score: 0, page: 1, coords: null as typeof targetCoords };
+                              
+                              for (const element of sourcePreview.elements) {
+                                let rawText = "";
+                                if (typeof element.text === "string") {
+                                  rawText = element.text;
+                                } else if (element.text && typeof element.text === "object") {
+                                  rawText = element.text.text || element.text.markdown || "";
+                                  if (!rawText && element.text.html) {
+                                    rawText = element.text.html.replace(/<[^>]+>/g, " ").trim();
+                                  }
+                                }
+                                
+                                const elementText = rawText.toLowerCase();
+                                if (elementText.length < 3) continue;
+                                
+                                let matchCount = 0;
+                                for (const word of citationWords) {
+                                  if (elementText.includes(word)) matchCount++;
+                                }
+                                
+                                if (matchCount > bestMatch.score) {
+                                  bestMatch = {
+                                    score: matchCount,
+                                    page: Number(element.page) || 1,
+                                    coords: element.coordinates || null,
+                                  };
                                 }
                               }
                               
-                              const elementText = rawText.toLowerCase();
-                              if (elementText.length < 3) continue;
-                              
-                              // Count matching words
-                              let matchCount = 0;
-                              for (const word of citationWords) {
-                                if (elementText.includes(word)) matchCount++;
-                              }
-                              
-                              // Track best match
-                              if (matchCount > bestMatch.score) {
-                                bestMatch = {
-                                  score: matchCount,
-                                  page: Number(element.page) || 1,
-                                  coords: element.coordinates || null,
-                                  text: elementText.substring(0, 60),
-                                };
+                              if (bestMatch.score >= 2) {
+                                targetPage = bestMatch.page;
+                                targetCoords = bestMatch.coords;
+                                console.log("[PDF Display] Fallback match - page:", targetPage, "coords:", targetCoords);
                               }
                             }
-                            
-                            // Use best match if score is good enough
-                            if (bestMatch.score >= 2 || (citationWords.length > 0 && bestMatch.score / citationWords.length >= 0.3)) {
-                              targetPage = bestMatch.page;
-                              targetCoords = bestMatch.coords;
-                              console.log("[PDF Page Match] Best match - page:", targetPage, "score:", bestMatch.score, "/", citationWords.length, "text:", bestMatch.text);
-                              console.log("[PDF Page Match] Coords:", targetCoords);
-                            }
-                          } else {
-                            console.log("[PDF Page Match] No elements available. Elements:", sourcePreview.elements);
                           }
                           
                           return (
