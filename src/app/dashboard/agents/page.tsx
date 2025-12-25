@@ -34,7 +34,12 @@ import {
   Square,
   ThumbsUp,
   ThumbsDown,
-  Timer
+  Timer,
+  Wrench,
+  Globe,
+  Calculator,
+  Terminal,
+  Link
 } from "lucide-react";
 
 // Icon mapping
@@ -111,10 +116,34 @@ export default function AgentDashboardPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [tokensUsed, setTokensUsed] = useState<{in: number, out: number} | null>(null);
+  const [useTools, setUseTools] = useState(true);
+  const [toolCalls, setToolCalls] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  
+  // Available tools
+  const AVAILABLE_TOOLS = [
+    { id: 'calculate', name: '계산기', icon: Calculator, desc: '수학 계산' },
+    { id: 'web_search', name: '웹 검색', icon: Globe, desc: '정보 검색' },
+    { id: 'read_url', name: 'URL 읽기', icon: Link, desc: '웹페이지 읽기' },
+    { id: 'execute_code', name: '코드 실행', icon: Terminal, desc: 'JS 실행' },
+    { id: 'current_time', name: '시간', icon: Clock, desc: '현재 시간' },
+  ];
+  
+  // Quick start templates
+  const QUICK_TEMPLATES = [
+    { icon: '💻', label: '코드 작성', prompt: '다음 기능을 구현하는 코드를 작성해 주세요: ' },
+    { icon: '📝', label: '문서 요약', prompt: '다음 내용을 핵심만 간략하게 요약해 주세요:\n\n' },
+    { icon: '📊', label: '데이터 분석', prompt: '다음 데이터를 분석하고 인사이트를 도출해 주세요:\n\n' },
+    { icon: '🔍', label: '웹 검색', prompt: '웹에서 다음 정보를 검색하고 요약해 주세요: ' },
+    { icon: '🧮', label: '계산/수학', prompt: '다음 수학 문제를 풀어주세요: ' },
+    { icon: '🌐', label: 'URL 분석', prompt: '다음 URL의 내용을 읽고 요약해 주세요: ' },
+  ];
+  
+  // Active tool calls during streaming
+  const [activeToolCalls, setActiveToolCalls] = useState<Array<{tool: string, status: 'running' | 'done', startTime: number}>>([]);
 
   // Load agents and history
   const loadData = useCallback(async () => {
@@ -185,6 +214,7 @@ export default function AgentDashboardPage() {
     setResult(null);
     setElapsedTime(0);
     setTokensUsed(null);
+    setToolCalls([]);
     
     // Start timer
     const startTime = Date.now();
@@ -199,17 +229,23 @@ export default function AgentDashboardPage() {
       // Find the selected model config
       const modelConfig = models.find(m => m.modelId === selectedModelId);
       
-      // Call chat API directly for streaming
+      // Build system prompt with tool instructions if enabled
+      const toolPrompt = useTools 
+        ? "\n\n사용 가능한 도구: calculate(수학계산), web_search(웹검색), read_url(URL읽기), execute_code(코드실행), current_time(현재시간). 필요시 도구를 활용하세요."
+        : "";
+      
+      // Call chat API directly for streaming with tool support
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            { role: "system", content: selectedAgent.systemPrompt },
+            { role: "system", content: selectedAgent.systemPrompt + toolPrompt },
             { role: "user", content: input.trim() }
           ],
           provider: modelConfig?.provider,
-          model: selectedModelId
+          model: selectedModelId,
+          useAgentTools: useTools  // Enable tool usage based on toggle
         }),
         signal: abortControllerRef.current.signal
       });
@@ -873,6 +909,81 @@ export default function AgentDashboardPage() {
             </div>
           )}
 
+          {/* Tool Panel */}
+          <div style={{ 
+            marginBottom: '16px', 
+            padding: '12px 16px', 
+            background: useTools ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)' : 'var(--bg-secondary)', 
+            borderRadius: '10px',
+            border: useTools ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid var(--border-color)',
+            transition: 'all 200ms'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Wrench style={{ width: '16px', height: '16px', color: useTools ? 'var(--color-primary)' : 'var(--text-tertiary)' }} />
+                <span style={{ fontSize: '13px', fontWeight: 500, color: useTools ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                  도구 사용
+                </span>
+              </div>
+              <button
+                onClick={() => setUseTools(!useTools)}
+                style={{
+                  width: '44px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  background: useTools ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  transition: 'background 200ms'
+                }}
+              >
+                <div style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  position: 'absolute',
+                  top: '3px',
+                  left: useTools ? '23px' : '3px',
+                  transition: 'left 200ms',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              </button>
+            </div>
+            
+            {useTools && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {AVAILABLE_TOOLS.map(tool => (
+                  <div
+                    key={tool.id}
+                    title={tool.desc}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 10px',
+                      background: 'var(--bg-primary)',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-color)'
+                    }}
+                  >
+                    <tool.icon style={{ width: '14px', height: '14px' }} />
+                    {tool.name}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {!useTools && (
+              <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: 0 }}>
+                도구 비활성화됨 - 에이전트가 단순 텍스트 응답만 생성합니다
+              </p>
+            )}
+          </div>
+
           <textarea
             ref={textareaRef}
             value={input}
@@ -886,6 +997,57 @@ export default function AgentDashboardPage() {
               transition: 'border-color 200ms, box-shadow 200ms'
             }}
           />
+          
+          {/* Quick Templates */}
+          {!input && (
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              flexWrap: 'wrap', 
+              marginTop: '12px',
+              padding: '12px',
+              background: 'var(--bg-secondary)',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)'
+            }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', width: '100%', marginBottom: '6px' }}>
+                빠른 시작 템플릿:
+              </span>
+              {QUICK_TEMPLATES.map((template, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setInput(template.prompt);
+                    textareaRef.current?.focus();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 150ms'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <span>{template.icon}</span>
+                  {template.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '16px', alignItems: 'center' }}>
             {executing ? (

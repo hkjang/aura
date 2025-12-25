@@ -1,19 +1,20 @@
-
 import { streamText } from "ai";
 import { AIProviderFactory } from "@/lib/ai/factory";
 import { AIModelConfig, AIProviderId } from "@/lib/ai/types";
-import { prisma } from "@/lib/prisma"; // If we want to load config from DB
+import { prisma } from "@/lib/prisma";
 import { searchDocumentsTool } from "@/lib/ai/tools/search";
+import { agentTools } from "@/lib/agents/tool-definitions";
 import { CostCalculator } from "@/lib/cost/calculator"; 
 import { PolicyEngine } from "@/lib/governance/policy-engine";
 import { AuditService } from "@/lib/governance/audit";
-import { DeploymentService } from "@/lib/mlops/deployment-service"; // NEW IMPORT
+import { DeploymentService } from "@/lib/mlops/deployment-service";
+import { RateLimitService } from "@/lib/agents/rate-limit";
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
-  const { messages, provider, model, systemPrompt, reasoningEffort } = await req.json();
-  console.log("DEBUG: POST /api/chat", { provider, model, messagesLength: messages?.length, hasSystemPrompt: !!systemPrompt, reasoningEffort });
+  const { messages, provider, model, systemPrompt, reasoningEffort, useAgentTools } = await req.json();
+  console.log("DEBUG: POST /api/chat", { provider, model, messagesLength: messages?.length, hasSystemPrompt: !!systemPrompt, reasoningEffort, useAgentTools });
 
   // 0. FETCH USER (Fixes Foreign Key Issue)
   // In a real app, this comes from auth session.
@@ -61,6 +62,17 @@ export async function POST(req: Request) {
   const { allowed, remaining } = await CostCalculator.checkBudget(userId);
   if (!allowed) {
     return new Response(JSON.stringify({ error: "Budget exceeded. Please upgrade your plan." }), { status: 403 });
+  }
+  
+  // 1.1 CHECK RATE LIMIT
+  const userRole = 'USER'; // In production, get from session
+  const rateLimit = await RateLimitService.checkAndConsume(userId, userRole);
+  if (!rateLimit.allowed) {
+    return new Response(JSON.stringify({ 
+      error: `요청 한도 초과: ${rateLimit.reason}`,
+      remaining: rateLimit.remaining,
+      resetTime: rateLimit.resetTime
+    }), { status: 429 });
   }
 
   // 2. RESOLVE MODEL CONFIGURATION
@@ -142,22 +154,29 @@ export async function POST(req: Request) {
     const activeTools: Record<string, any> = {};
 
     // 2. Map DB keys to actual tool definitions
-    // This allows us to enable/disable them at runtime
     if (toolConfigs.some(t => t.key === "search_documents")) {
       activeTools["searchDocuments"] = searchDocumentsTool;
     }
+    
+    // 3. Add agent tools if requested (for AI agent executions)
+    if (useAgentTools) {
+      console.log("DEBUG: Adding agent tools for agentic execution");
+      Object.assign(activeTools, agentTools);
+    }
 
-    // Verify tool support: sending tools to models that don't support them (like some Ollama models) causes 400 errors.
-    const supportsTools = providerId !== 'ollama'; 
+    // Verify tool support: some models don't support tools
+    const supportsTools = providerId !== 'ollama' || Object.keys(activeTools).length === 0;
+    const toolsToUse = supportsTools && Object.keys(activeTools).length > 0 ? activeTools : undefined;
 
     console.log("DEBUG: systemPrompt received:", systemPrompt);
     console.log("DEBUG: messages count:", messages.length);
+    console.log("DEBUG: Active tools:", Object.keys(activeTools));
 
     const result = await streamText({
       model: languageModel,
       system: systemPrompt || undefined,
       messages,
-      tools: supportsTools ? activeTools : undefined,
+      tools: toolsToUse,
     });
 
     // Create custom stream that captures reasoning and appends usage data
