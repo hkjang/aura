@@ -39,7 +39,9 @@ import {
   Globe,
   Calculator,
   Terminal,
-  Link
+  Link,
+  HelpCircle,
+  Info
 } from "lucide-react";
 
 // Icon mapping
@@ -924,6 +926,54 @@ export default function AgentDashboardPage() {
                 <span style={{ fontSize: '13px', fontWeight: 500, color: useTools ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                   도구 사용
                 </span>
+                {/* Tooltip with supported models */}
+                <div style={{ position: 'relative', display: 'inline-block' }} className="tool-tooltip-container">
+                  <HelpCircle 
+                    style={{ 
+                      width: '14px', 
+                      height: '14px', 
+                      color: 'var(--text-tertiary)',
+                      cursor: 'help'
+                    }}
+                  />
+                  <div 
+                    className="tool-tooltip"
+                    style={{
+                      position: 'absolute',
+                      top: '24px',
+                      left: '0',
+                      width: '300px',
+                      padding: '12px',
+                      background: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                      fontSize: '12px',
+                      lineHeight: 1.5,
+                      zIndex: 1000,
+                      display: 'none'
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--text-primary)' }}>
+                      🤖 도구 지원 모델
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>OpenAI</strong>: GPT-4o, GPT-4 Turbo, GPT-3.5</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>Anthropic</strong>: Claude 3.5 Sonnet, Claude 3 Opus</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>Google</strong>: Gemini 2.0, Gemini 1.5 Pro</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>Mistral</strong>: Mistral Large, Medium</div>
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>🔓 오픈소스 (vLLM 권장)</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>Llama</strong>: Llama 3.1, Llama 3.2 (8B+)</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>Qwen</strong>: Qwen 2.5 (7B+)</div>
+                      <div style={{ marginBottom: '4px' }}>✅ <strong>기타</strong>: Hermes 3, Firefunction v2</div>
+                    </div>
+                    <div style={{ color: 'var(--color-warning)', fontSize: '11px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                      ⚠️ Ollama는 도구 미지원 - vLLM 또는 OpenAI API 호환 서버 사용
+                    </div>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setUseTools(!useTools)}
@@ -983,6 +1033,13 @@ export default function AgentDashboardPage() {
               </p>
             )}
           </div>
+          
+          {/* Tooltip CSS */}
+          <style>{`
+            .tool-tooltip-container:hover .tool-tooltip {
+              display: block !important;
+            }
+          `}</style>
 
           <textarea
             ref={textareaRef}
