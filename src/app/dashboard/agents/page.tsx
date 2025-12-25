@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ModelSelector, ModelInfo } from "@/components/chat/model-selector";
+import { MarkdownRenderer } from "@/components/chat/markdown-renderer";
 import { 
   Bot, 
   Play, 
@@ -16,179 +17,348 @@ import {
   Loader2,
   CheckCircle2,
   Copy,
-  Info,
   Sparkles,
-  ArrowRight,
-  Clock
+  Clock,
+  Zap,
+  Brain,
+  Wand2,
+  History,
+  ChevronRight,
+  RotateCcw,
+  Download,
+  Star,
+  TrendingUp,
+  RefreshCw,
+  AlertCircle,
+  Settings,
+  Square,
+  ThumbsUp,
+  ThumbsDown,
+  Timer
 } from "lucide-react";
 
-interface AgentTemplate {
+// Icon mapping
+const ICON_MAP: Record<string, React.ElementType> = {
+  Search, FileText, Mail, Code2, BarChart3, MessageSquare, Bot, Brain, Wand2
+};
+
+// Model configuration interface
+interface ModelConfig {
   id: string;
   name: string;
-  description: string;
-  icon: React.ElementType;
-  color: string;
-  placeholder: string;
-  systemPrompt: string;
+  provider: string;
+  modelId: string;
+  isActive: boolean;
 }
 
-const AGENT_TEMPLATES: AgentTemplate[] = [
-  {
-    id: "researcher",
-    name: "리서처",
-    description: "주제에 대해 깊이있게 조사하고 정리된 보고서를 작성합니다",
-    icon: Search,
-    color: "#8b5cf6",
-    placeholder: "조사할 주제를 입력하세요 (예: '2024년 AI 트렌드')",
-    systemPrompt: `당신은 전문 리서처입니다. 사용자가 요청한 주제에 대해:
-1. 핵심 개념과 정의
-2. 현재 동향과 트렌드
-3. 주요 사례나 예시
-4. 결론 및 인사이트
-형식으로 체계적으로 조사 결과를 정리해주세요. 한국어로 답변하세요.`
-  },
-  {
-    id: "summarizer",
-    name: "요약기",
-    description: "긴 텍스트를 핵심만 추출하여 간결하게 요약합니다",
-    icon: FileText,
-    color: "#3b82f6",
-    placeholder: "요약할 텍스트를 붙여넣으세요",
-    systemPrompt: `당신은 전문 요약 전문가입니다. 주어진 텍스트를 분석하여:
-1. 핵심 요약 (2-3문장)
-2. 주요 포인트 (3-5개 불릿 포인트)
-3. 핵심 키워드 (5개)
-형식으로 정리해주세요. 원문의 의미를 보존하면서 간결하게 요약하세요. 한국어로 답변하세요.`
-  },
-  {
-    id: "writer",
-    name: "작성기",
-    description: "이메일, 보고서, 문서 등 다양한 글을 작성합니다",
-    icon: Mail,
-    color: "#22c55e",
-    placeholder: "작성할 내용을 설명하세요 (예: '프로젝트 완료 보고 이메일')",
-    systemPrompt: `당신은 전문 비즈니스 작성가입니다. 사용자의 요청에 따라 적절한 형식과 톤으로 글을 작성합니다.
-- 이메일: 적절한 인사말과 맺음말 포함
-- 보고서: 체계적인 구조와 명확한 내용
-- 문서: 전문적이고 읽기 쉬운 형식
-한국어로 작성하고, 필요시 영문 병기도 가능합니다.`
-  },
-  {
-    id: "coder",
-    name: "코더",
-    description: "코드 작성, 리뷰, 최적화를 도와드립니다",
-    icon: Code2,
-    color: "#f59e0b",
-    placeholder: "필요한 기능이나 코드를 설명하세요",
-    systemPrompt: `당신은 시니어 소프트웨어 개발자입니다. 
-- 깔끔하고 효율적인 코드 작성
-- 코드에 대한 설명 주석 포함
-- 베스트 프랙티스 적용
-- 잠재적 문제점과 개선 사항 제안
-필요시 여러 프로그래밍 언어로 예시를 제공합니다.`
-  },
-  {
-    id: "analyzer",
-    name: "분석기",
-    description: "데이터나 상황을 분석하고 인사이트를 제공합니다",
-    icon: BarChart3,
-    color: "#ec4899",
-    placeholder: "분석할 데이터나 상황을 설명하세요",
-    systemPrompt: `당신은 데이터 분석 전문가입니다. 주어진 정보를 분석하여:
-1. 현황 분석 (As-Is)
-2. 문제점/기회 도출
-3. 데이터 기반 인사이트
-4. 액션 아이템 제안
-형식으로 체계적인 분석 결과를 제공합니다. 가능하면 수치화하고 근거를 명시하세요.`
-  },
-  {
-    id: "translator",
-    name: "번역기",
-    description: "다국어 번역과 문화적 맥락 설명을 제공합니다",
-    icon: MessageSquare,
-    color: "#06b6d4",
-    placeholder: "번역할 텍스트와 대상 언어를 입력하세요",
-    systemPrompt: `당신은 전문 번역가입니다. 다음을 제공합니다:
-1. 정확한 번역
-2. 문화적 맥락이나 뉘앙스 설명 (필요시)
-3. 대안 표현 제안 (중요한 경우)
-자연스럽고 원문의 의도를 잘 전달하는 번역을 제공하세요.`
-  }
-];
+interface Agent {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  gradient?: string;
+  category: string;
+  tags: string[];
+  placeholder?: string;
+  systemPrompt: string;
+  usageCount: number;
+  rating: number;
+  isFavorite: boolean;
+}
 
-interface ExecutionResult {
+interface Execution {
+  id: string;
   agentId: string;
   input: string;
   output: string;
   duration: number;
-  timestamp: string;
+  status: string;
+  createdAt: string;
+  agent?: {
+    id: string;
+    name: string;
+    slug: string;
+    icon: string;
+    color: string;
+    gradient?: string;
+  };
+}
+
+interface Stats {
+  totalAgents: number;
+  totalExecutions: number;
+  activeAgents: number;
+  avgRating: number;
 }
 
 export default function AgentDashboardPage() {
-  const [selectedAgent, setSelectedAgent] = useState<AgentTemplate | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [input, setInput] = useState("");
   const [executing, setExecuting] = useState(false);
-  const [result, setResult] = useState<ExecutionResult | null>(null);
-  const [recentExecutions, setRecentExecutions] = useState<ExecutionResult[]>([]);
+  const [result, setResult] = useState<Execution | null>(null);
+  const [recentExecutions, setRecentExecutions] = useState<Execution[]>([]);
   const [copied, setCopied] = useState(false);
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [models, setModels] = useState<ModelConfig[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>("");
+  const [streamingOutput, setStreamingOutput] = useState<string>("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [tokensUsed, setTokensUsed] = useState<{in: number, out: number} | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // Load agents and history
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [agentsRes, historyRes, modelsRes] = await Promise.all([
+        fetch("/api/agents?stats=true"),
+        fetch("/api/agents/history?limit=10"),
+        fetch("/api/admin/models")
+      ]);
+      
+      if (agentsRes.ok) {
+        const data = await agentsRes.json();
+        setAgents(data.agents || []);
+        setStats(data.stats || null);
+      }
+      
+      if (historyRes.ok) {
+        const data = await historyRes.json();
+        setRecentExecutions(data.history || []);
+      }
+      
+      if (modelsRes.ok) {
+        const data = await modelsRes.json();
+        const activeModels = (data.models || []).filter((m: ModelConfig) => m.isActive);
+        setModels(activeModels);
+        // Set default model from localStorage or first available
+        const savedModel = localStorage.getItem('agent-selected-model');
+        if (savedModel && activeModels.find((m: ModelConfig) => m.modelId === savedModel)) {
+          setSelectedModelId(savedModel);
+        } else if (activeModels.length > 0) {
+          setSelectedModelId(activeModels[0].modelId);
+        }
+      }
+    } catch (err) {
+      setError("데이터를 불러오는데 실패했습니다.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (selectedAgent && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [selectedAgent]);
+
+  useEffect(() => {
+    if (result && resultRef.current) {
+      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [result]);
 
   const handleExecute = async () => {
     if (!selectedAgent || !input.trim()) return;
 
+    // Reset state
     setExecuting(true);
+    setIsStreaming(true);
+    setStreamingOutput("");
     setResult(null);
+    setElapsedTime(0);
+    setTokensUsed(null);
+    
+    // Start timer
     const startTime = Date.now();
+    timerRef.current = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 100) / 10);
+    }, 100);
+    
+    // Create abort controller
+    abortControllerRef.current = new AbortController();
 
     try {
+      // Find the selected model config
+      const modelConfig = models.find(m => m.modelId === selectedModelId);
+      
+      // Call chat API directly for streaming
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
             { role: "system", content: selectedAgent.systemPrompt },
-            { role: "user", content: input }
-          ]
+            { role: "user", content: input.trim() }
+          ],
+          provider: modelConfig?.provider,
+          model: selectedModelId
+        }),
+        signal: abortControllerRef.current.signal
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "에이전트 실행에 실패했습니다." }));
+        throw new Error(errorData.error || "에이전트 실행에 실패했습니다.");
+      }
+
+      // Read streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullOutput = "";
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          fullOutput += chunk;
+          
+          // Check for usage separator
+          const usageSeparator = "\n---USAGE---\n";
+          const separatorIndex = fullOutput.indexOf(usageSeparator);
+          
+          if (separatorIndex !== -1) {
+            const displayOutput = fullOutput.substring(0, separatorIndex);
+            setStreamingOutput(displayOutput);
+            
+            // Try to parse usage data
+            try {
+              const usageJson = fullOutput.substring(separatorIndex + usageSeparator.length);
+              const usageData = JSON.parse(usageJson);
+              setTokensUsed({ in: usageData.tokensIn || 0, out: usageData.tokensOut || 0 });
+            } catch (e) {
+              // Ignore parse errors
+            }
+          } else {
+            setStreamingOutput(fullOutput);
+          }
+        }
+      }
+      
+      // Stop timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      const duration = Date.now() - startTime;
+      
+      // Parse final output
+      const usageSeparator = "\n---USAGE---\n";
+      const sepIdx = fullOutput.indexOf(usageSeparator);
+      const finalOutput = sepIdx !== -1 ? fullOutput.substring(0, sepIdx) : fullOutput;
+      
+      // Save execution to database
+      const saveRes = await fetch("/api/agents/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId: selectedAgent.id,
+          input: input.trim(),
+          provider: modelConfig?.provider,
+          model: selectedModelId,
+          // Flag to indicate this is just for saving, not executing again
+          saveOnly: true,
+          output: finalOutput,
+          duration
         })
       });
-
-      const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.error || "에이전트 실행에 실패했습니다.");
-      }
-
-      // Handle streaming response or direct response
-      let outputText = "";
-      if (data.choices && data.choices[0]) {
-        outputText = data.choices[0].message?.content || data.choices[0].text || "";
-      } else if (data.content) {
-        outputText = data.content;
-      } else if (typeof data === "string") {
-        outputText = data;
-      } else {
-        outputText = JSON.stringify(data);
-      }
-
-      const execution: ExecutionResult = {
+      const savedData = await saveRes.json().catch(() => null);
+      
+      const execution: Execution = {
+        id: savedData?.execution?.id || "",
         agentId: selectedAgent.id,
-        input: input,
-        output: outputText,
-        duration: Date.now() - startTime,
-        timestamp: new Date().toLocaleString("ko-KR")
+        input: input.trim(),
+        output: finalOutput,
+        duration,
+        status: "SUCCESS",
+        createdAt: new Date().toISOString()
       };
-
+      
       setResult(execution);
-      setRecentExecutions(prev => [execution, ...prev.slice(0, 4)]);
-    } catch (error) {
-      setResult({
-        agentId: selectedAgent.id,
-        input: input,
-        output: `오류: ${error instanceof Error ? error.message : "알 수 없는 오류"}`,
-        duration: Date.now() - startTime,
-        timestamp: new Date().toLocaleString("ko-KR")
-      });
+      setRecentExecutions(prev => [execution, ...prev.slice(0, 9)]);
+      
+      // Refresh stats
+      const statsRes = await fetch("/api/agents?stats=true");
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData.stats);
+      }
+    } catch (err) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      if ((err as Error).name === 'AbortError') {
+        setStreamingOutput(prev => prev + "\n\n[중단됨]");
+        setResult({
+          id: "",
+          agentId: selectedAgent.id,
+          input: input,
+          output: streamingOutput + "\n\n[중단됨]",
+          duration: elapsedTime * 1000,
+          status: "CANCELLED",
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        setResult({
+          id: "",
+          agentId: selectedAgent.id,
+          input: input,
+          output: `오류: ${err instanceof Error ? err.message : "알 수 없는 오류"}`,
+          duration: 0,
+          status: "ERROR",
+          createdAt: new Date().toISOString()
+        });
+      }
     } finally {
       setExecuting(false);
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+    }
+  };
+  
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  };
+  
+  const handleRate = async (rating: number) => {
+    if (!result?.id) return;
+    
+    try {
+      await fetch(`/api/agents/history/${result.id}/rate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating })
+      });
+      
+      // Update local result
+      setResult(prev => prev ? { ...prev, rating } : null);
+    } catch (err) {
+      console.error("Failed to rate:", err);
     }
   };
 
@@ -200,70 +370,347 @@ export default function AgentDashboardPage() {
     }
   };
 
+  const handleDownload = () => {
+    if (result?.output) {
+      const blob = new Blob([result.output], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedAgent?.name}_결과_${new Date().toISOString().slice(0, 10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const toggleFavorite = async (agentId: string, currentlyFavorite: boolean) => {
+    try {
+      if (currentlyFavorite) {
+        await fetch(`/api/agents/favorites?agentId=${agentId}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/agents/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId })
+        });
+      }
+      
+      setAgents(prev => prev.map(a => 
+        a.id === agentId ? { ...a, isFavorite: !currentlyFavorite } : a
+      ));
+    } catch (err) {
+      console.error("Failed to toggle favorite:", err);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      handleExecute();
+    }
+  };
+
+  const getIcon = (iconName: string) => {
+    return ICON_MAP[iconName] || Bot;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("ko-KR");
+  };
+
+  const favoriteAgents = agents.filter(a => a.isFavorite);
+  const otherAgents = agents.filter(a => !a.isFavorite);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '400px',
+        gap: '12px',
+        color: 'var(--text-secondary)'
+      }}>
+        <Loader2 style={{ width: '24px', height: '24px', animation: 'spin 1s linear infinite' }} />
+        에이전트 로딩 중...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '400px',
+        gap: '16px',
+        color: 'var(--text-secondary)'
+      }}>
+        <AlertCircle style={{ width: '48px', height: '48px', color: 'var(--color-error)' }} />
+        <p>{error}</p>
+        <Button onClick={loadData}>
+          <RefreshCw style={{ width: '16px', height: '16px', marginRight: '8px' }} />
+          다시 시도
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Bot style={{ width: '28px', height: '28px', color: 'var(--color-primary)' }} />
-          AI 에이전트
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '8px', fontSize: '14px' }}>
-          특정 작업에 최적화된 AI 에이전트를 선택하고 실행하세요.
-        </p>
+    <div style={{ 
+      padding: '32px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '32px',
+      maxWidth: '1400px',
+      margin: '0 auto'
+    }}>
+      {/* Hero Header */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(59, 130, 246, 0.1) 50%, rgba(236, 72, 153, 0.1) 100%)',
+        borderRadius: '20px',
+        padding: '32px',
+        border: '1px solid rgba(124, 58, 237, 0.2)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          right: '-10%',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%)',
+          borderRadius: '50%',
+          animation: 'pulse 4s ease-in-out infinite'
+        }} />
+        
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(124, 58, 237, 0.3)'
+            }}>
+              <Brain style={{ width: '28px', height: '28px', color: 'white' }} />
+            </div>
+            <div>
+              <h1 style={{ 
+                fontSize: '28px', 
+                fontWeight: 700, 
+                color: 'var(--text-primary)',
+                background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 50%, #ec4899 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>
+                AI 에이전트
+              </h1>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginTop: '4px' }}>
+                전문화된 AI 에이전트로 작업 효율을 극대화하세요
+              </p>
+            </div>
+          </div>
+          
+          {/* Stats Row */}
+          {stats && (
+            <div style={{ display: 'flex', gap: '24px', marginTop: '24px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(124, 58, 237, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Zap style={{ width: '18px', height: '18px', color: '#7c3aed' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>{stats.totalAgents}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>활성 에이전트</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <TrendingUp style={{ width: '18px', height: '18px', color: '#3b82f6' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {stats.totalExecutions.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>총 실행 횟수</p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Star style={{ width: '18px', height: '18px', color: '#22c55e' }} />
+                </div>
+                <div>
+                  <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : '-'}
+                  </p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>평균 평점</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* How it works */}
-      <Card className="p-5" style={{ background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+      <Card className="p-5" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <div style={{ 
-            width: '36px', 
-            height: '36px', 
-            borderRadius: '10px', 
-            background: 'var(--color-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <Info style={{ width: '20px', height: '20px', color: 'white' }} />
-          </div>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            AI 에이전트란?
-          </h2>
+          <Wand2 style={{ width: '20px', height: '20px', color: 'var(--color-primary)' }} />
+          <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>사용 방법</h2>
         </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '16px' }}>
-          AI 에이전트는 <strong>특정 작업에 특화된 AI 어시스턴트</strong>입니다. 
-          일반 채팅과 달리, 각 에이전트는 해당 분야에 최적화된 프롬프트와 지식을 갖추고 있어 
-          더 정확하고 전문적인 결과를 제공합니다.
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', fontSize: '13px', color: 'var(--text-tertiary)' }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '16px', 
+          fontSize: '13px', 
+          color: 'var(--text-secondary)',
+          flexWrap: 'wrap'
+        }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-primary)' }}>1</span>
+            <span style={{ 
+              width: '24px', height: '24px', borderRadius: '8px', 
+              background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              fontWeight: 700, color: 'white', fontSize: '12px'
+            }}>1</span>
             에이전트 선택
           </span>
-          <ArrowRight style={{ width: '16px', height: '16px' }} />
+          <ChevronRight style={{ width: '16px', height: '16px', color: 'var(--text-tertiary)' }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-primary)' }}>2</span>
-            작업 입력
+            <span style={{ 
+              width: '24px', height: '24px', borderRadius: '8px', 
+              background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              fontWeight: 700, color: 'white', fontSize: '12px'
+            }}>2</span>
+            작업 내용 입력
           </span>
-          <ArrowRight style={{ width: '16px', height: '16px' }} />
+          <ChevronRight style={{ width: '16px', height: '16px', color: 'var(--text-tertiary)' }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-primary)' }}>3</span>
-            결과 확인
+            <span style={{ 
+              width: '24px', height: '24px', borderRadius: '8px', 
+              background: 'linear-gradient(135deg, #22c55e 0%, #4ade80 100%)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              fontWeight: 700, color: 'white', fontSize: '12px'
+            }}>3</span>
+            결과 확인 및 활용
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            Ctrl/⌘ + Enter로 빠른 실행
           </span>
         </div>
       </Card>
 
-      {/* Agent Selection */}
+      {/* Favorite Agents */}
+      {favoriteAgents.length > 0 && (
+        <div>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Star style={{ width: '18px', height: '18px', color: '#f59e0b', fill: '#f59e0b' }} />
+            즐겨찾기
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+            {favoriteAgents.map(agent => {
+              const Icon = getIcon(agent.icon);
+              const isSelected = selectedAgent?.id === agent.id;
+              const isHovered = hoveredAgent === agent.id;
+              return (
+                <Card 
+                  key={agent.id}
+                  className="p-4"
+                  style={{ 
+                    cursor: 'pointer',
+                    border: isSelected ? `2px solid ${agent.color}` : '1px solid var(--border-color)',
+                    background: isSelected ? `${agent.color}08` : 'var(--bg-primary)',
+                    transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+                    transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+                    boxShadow: isHovered ? `0 12px 40px ${agent.color}20` : 'none'
+                  }}
+                  onClick={() => { setSelectedAgent(agent); setInput(""); setResult(null); }}
+                  onMouseEnter={() => setHoveredAgent(agent.id)}
+                  onMouseLeave={() => setHoveredAgent(null)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'start', gap: '14px' }}>
+                    <div style={{ 
+                      width: '48px', height: '48px', borderRadius: '14px', 
+                      background: agent.gradient || agent.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, boxShadow: `0 4px 12px ${agent.color}30`
+                    }}>
+                      <Icon style={{ width: '24px', height: '24px', color: 'white' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>{agent.name}</h3>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(agent.id, true); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                        >
+                          <Star style={{ width: '16px', height: '16px', color: '#f59e0b', fill: '#f59e0b' }} />
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
+                        {agent.description}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Zap style={{ width: '12px', height: '12px' }} />
+                          {agent.usageCount.toLocaleString()}회
+                        </span>
+                        {agent.rating > 0 && (
+                          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Star style={{ width: '12px', height: '12px', fill: '#f59e0b', color: '#f59e0b' }} />
+                            {agent.rating.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* All Agents */}
       <div>
         <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Sparkles style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
-          에이전트 선택
+          {favoriteAgents.length > 0 ? '모든 에이전트' : '에이전트 선택'}
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-          {AGENT_TEMPLATES.map(agent => {
-            const Icon = agent.icon;
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+          {(favoriteAgents.length > 0 ? otherAgents : agents).map(agent => {
+            const Icon = getIcon(agent.icon);
             const isSelected = selectedAgent?.id === agent.id;
+            const isHovered = hoveredAgent === agent.id;
             return (
               <Card 
                 key={agent.id}
@@ -272,28 +719,62 @@ export default function AgentDashboardPage() {
                   cursor: 'pointer',
                   border: isSelected ? `2px solid ${agent.color}` : '1px solid var(--border-color)',
                   background: isSelected ? `${agent.color}08` : 'var(--bg-primary)',
-                  transition: 'all 200ms ease'
+                  transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
+                  boxShadow: isHovered ? `0 12px 40px ${agent.color}20` : 'none'
                 }}
                 onClick={() => { setSelectedAgent(agent); setInput(""); setResult(null); }}
+                onMouseEnter={() => setHoveredAgent(agent.id)}
+                onMouseLeave={() => setHoveredAgent(null)}
               >
                 <div style={{ display: 'flex', alignItems: 'start', gap: '14px' }}>
                   <div style={{ 
-                    width: '44px', 
-                    height: '44px', 
-                    borderRadius: '12px', 
-                    background: `${agent.color}20`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
+                    width: '48px', height: '48px', borderRadius: '14px', 
+                    background: agent.gradient || agent.color,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, boxShadow: `0 4px 12px ${agent.color}30`
                   }}>
-                    <Icon style={{ width: '22px', height: '22px', color: agent.color }} />
+                    <Icon style={{ width: '24px', height: '24px', color: 'white' }} />
                   </div>
-                  <div>
-                    <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>{agent.name}</h3>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '15px' }}>{agent.name}</h3>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(agent.id, agent.isFavorite); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                      >
+                        <Star style={{ 
+                          width: '16px', height: '16px', 
+                          color: agent.isFavorite ? '#f59e0b' : 'var(--text-tertiary)',
+                          fill: agent.isFavorite ? '#f59e0b' : 'none'
+                        }} />
+                      </button>
+                    </div>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
                       {agent.description}
                     </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                      {agent.tags?.slice(0, 3).map(tag => (
+                        <span key={tag} style={{
+                          fontSize: '10px', padding: '2px 8px', borderRadius: '10px',
+                          background: `${agent.color}15`, color: agent.color, fontWeight: 500
+                        }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Zap style={{ width: '12px', height: '12px' }} />
+                        {agent.usageCount.toLocaleString()}회
+                      </span>
+                      {agent.rating > 0 && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Star style={{ width: '12px', height: '12px', fill: '#f59e0b', color: '#f59e0b' }} />
+                          {agent.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -304,87 +785,262 @@ export default function AgentDashboardPage() {
 
       {/* Input & Execution */}
       {selectedAgent && (
-        <Card className="p-6" style={{ border: `1px solid ${selectedAgent.color}40` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            {(() => {
-              const Icon = selectedAgent.icon;
-              return <Icon style={{ width: '20px', height: '20px', color: selectedAgent.color }} />;
-            })()}
-            <h3 style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-              {selectedAgent.name} 에이전트 실행
-            </h3>
+        <Card 
+          className="p-6" 
+          style={{ 
+            border: `2px solid ${selectedAgent.color}40`,
+            background: `linear-gradient(135deg, ${selectedAgent.color}05 0%, transparent 100%)`,
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: '4px',
+            background: selectedAgent.gradient || selectedAgent.color
+          }} />
+          
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '12px',
+                background: selectedAgent.gradient || selectedAgent.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 4px 12px ${selectedAgent.color}30`
+              }}>
+                {(() => {
+                  const Icon = getIcon(selectedAgent.icon);
+                  return <Icon style={{ width: '20px', height: '20px', color: 'white' }} />;
+                })()}
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '16px' }}>
+                  {selectedAgent.name} 에이전트
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                  작업을 입력하고 실행하세요
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => { setSelectedAgent(null); setInput(""); setResult(null); }}
+            >
+              다른 에이전트 선택
+            </Button>
           </div>
 
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={selectedAgent.placeholder}
-            style={{
-              width: '100%',
-              minHeight: '120px',
-              padding: '14px',
+          {/* Model Selector */}
+          {models.length > 0 && (
+            <div style={{ 
+              marginBottom: '16px', 
+              padding: '12px 16px', 
+              background: 'var(--bg-secondary)', 
               borderRadius: '10px',
               border: '1px solid var(--border-color)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              resize: 'vertical',
-              lineHeight: 1.6
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Settings style={{ width: '16px', height: '16px', color: 'var(--text-tertiary)' }} />
+                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>사용할 모델</span>
+              </div>
+              <select
+                value={selectedModelId}
+                onChange={(e) => {
+                  setSelectedModelId(e.target.value);
+                  localStorage.setItem('agent-selected-model', e.target.value);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-primary)',
+                  color: 'var(--text-primary)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  minWidth: '200px'
+                }}
+              >
+                {models.map(model => (
+                  <option key={model.id} value={model.modelId}>
+                    {model.name} ({model.provider})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={selectedAgent.placeholder || "작업 내용을 입력하세요..."}
+            style={{
+              width: '100%', minHeight: '140px', padding: '16px', borderRadius: '12px',
+              border: '1px solid var(--border-color)', background: 'var(--bg-primary)',
+              color: 'var(--text-primary)', fontSize: '14px', resize: 'vertical', lineHeight: 1.7,
+              transition: 'border-color 200ms, box-shadow 200ms'
             }}
           />
 
-          <Button 
-            onClick={handleExecute}
-            disabled={executing || !input.trim()}
-            style={{ marginTop: '16px', width: '100%' }}
-            size="lg"
-          >
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px', alignItems: 'center' }}>
             {executing ? (
               <>
-                <Loader2 style={{ width: '18px', height: '18px', marginRight: '8px', animation: 'spin 1s linear infinite' }} />
-                실행 중...
+                <Button 
+                  onClick={handleStop}
+                  variant="destructive"
+                  style={{ flex: 1 }}
+                  size="lg"
+                >
+                  <Square style={{ width: '16px', height: '16px', marginRight: '8px', fill: 'currentColor' }} />
+                  중단하기
+                </Button>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  padding: '8px 16px',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <Timer style={{ width: '16px', height: '16px', animation: 'pulse 1s infinite' }} />
+                  {elapsedTime.toFixed(1)}초
+                </div>
               </>
             ) : (
               <>
-                <Play style={{ width: '18px', height: '18px', marginRight: '8px' }} />
-                실행하기
+                <Button 
+                  onClick={handleExecute}
+                  disabled={!input.trim()}
+                  style={{ flex: 1, background: selectedAgent.gradient || selectedAgent.color, border: 'none' }}
+                  size="lg"
+                >
+                  <Play style={{ width: '18px', height: '18px', marginRight: '8px' }} />
+                  실행하기
+                </Button>
+                <Button variant="outline" onClick={() => setInput("")} disabled={!input.trim()}>
+                  <RotateCcw style={{ width: '16px', height: '16px' }} />
+                </Button>
               </>
             )}
-          </Button>
+          </div>
+          
+          {/* Streaming Preview */}
+          {isStreaming && streamingOutput && (
+            <div style={{ marginTop: '16px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '8px',
+                fontSize: '13px',
+                color: 'var(--text-secondary)'
+              }}>
+                <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
+                응답 생성 중...
+              </div>
+              <div style={{ 
+                padding: '16px', 
+                background: 'var(--bg-secondary)', 
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                maxHeight: '400px',
+                overflow: 'auto'
+              }}>
+                <MarkdownRenderer content={streamingOutput + "▌"} />
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
       {/* Result */}
-      {result && (
-        <Card className="p-6">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      {result && !isStreaming && (
+        <Card ref={resultRef} className="p-6" style={{ border: '1px solid var(--border-color)', background: 'var(--bg-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <CheckCircle2 style={{ width: '20px', height: '20px', color: 'var(--color-success)' }} />
-              <h3 style={{ fontWeight: 600, color: 'var(--text-primary)' }}>실행 결과</h3>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '10px',
+                background: result.status === 'ERROR' 
+                  ? 'linear-gradient(135deg, #ef4444 0%, #f87171 100%)'
+                  : 'linear-gradient(135deg, #22c55e 0%, #4ade80 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {result.status === 'ERROR' 
+                  ? <AlertCircle style={{ width: '18px', height: '18px', color: 'white' }} />
+                  : <CheckCircle2 style={{ width: '18px', height: '18px', color: 'white' }} />
+                }
+              </div>
+              <div>
+                <h3 style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '16px' }}>
+                  {result.status === 'ERROR' ? '실행 오류' : '실행 결과'}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                  <span>{formatDate(result.createdAt)}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock style={{ width: '12px', height: '12px' }} />
+                    {(result.duration / 1000).toFixed(1)}초
+                  </span>
+                  {tokensUsed && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Zap style={{ width: '12px', height: '12px' }} />
+                      {tokensUsed.in + tokensUsed.out} 토큰
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Clock style={{ width: '12px', height: '12px' }} />
-                {(result.duration / 1000).toFixed(1)}초
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Rating buttons */}
+              {result.id && result.status === 'SUCCESS' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleRate(5)}
+                    style={{ 
+                      color: (result as any).rating === 5 ? '#22c55e' : undefined,
+                      borderColor: (result as any).rating === 5 ? '#22c55e' : undefined
+                    }}
+                  >
+                    <ThumbsUp style={{ width: '14px', height: '14px' }} />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleRate(1)}
+                    style={{ 
+                      color: (result as any).rating === 1 ? '#ef4444' : undefined,
+                      borderColor: (result as any).rating === 1 ? '#ef4444' : undefined
+                    }}
+                  >
+                    <ThumbsDown style={{ width: '14px', height: '14px' }} />
+                  </Button>
+                </>
+              )}
               <Button variant="outline" size="sm" onClick={handleCopy}>
                 {copied ? <CheckCircle2 style={{ width: '14px', height: '14px' }} /> : <Copy style={{ width: '14px', height: '14px' }} />}
+                <span style={{ marginLeft: '6px' }}>{copied ? '복사됨' : '복사'}</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download style={{ width: '14px', height: '14px' }} />
               </Button>
             </div>
           </div>
 
           <div style={{ 
-            padding: '20px', 
-            background: 'var(--bg-secondary)', 
-            borderRadius: '10px',
-            fontSize: '14px',
-            color: 'var(--text-primary)',
-            lineHeight: 1.8,
-            whiteSpace: 'pre-wrap',
-            maxHeight: '500px',
-            overflow: 'auto'
+            padding: '20px', background: 'var(--bg-secondary)', borderRadius: '12px',
+            fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.8,
+            maxHeight: '600px', overflow: 'auto',
+            border: '1px solid var(--border-color)'
           }}>
-            {result.output}
+            <MarkdownRenderer content={result.output} />
           </div>
         </Card>
       )}
@@ -392,36 +1048,50 @@ export default function AgentDashboardPage() {
       {/* Recent Executions */}
       {recentExecutions.length > 0 && (
         <div>
-          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <History style={{ width: '18px', height: '18px', color: 'var(--color-primary)' }} />
             최근 실행 기록
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {recentExecutions.map((exec, idx) => {
-              const agent = AGENT_TEMPLATES.find(a => a.id === exec.agentId);
+            {recentExecutions.map((exec) => {
+              const agentData = exec.agent || agents.find(a => a.id === exec.agentId);
+              const Icon = agentData ? getIcon(agentData.icon) : Bot;
               return (
-                <Card key={idx} className="p-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Card 
+                  key={exec.id || exec.createdAt}
+                  className="p-4" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer', transition: 'all 200ms' }}
+                  onClick={() => {
+                    const agent = agents.find(a => a.id === exec.agentId);
+                    if (agent) {
+                      setSelectedAgent(agent);
+                      setInput(exec.input);
+                      setResult(exec);
+                    }
+                  }}
+                >
                   <div style={{ 
-                    width: '32px', 
-                    height: '32px', 
-                    borderRadius: '8px', 
-                    background: agent ? `${agent.color}20` : 'var(--bg-tertiary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                    width: '40px', height: '40px', borderRadius: '10px', 
+                    background: agentData?.gradient || agentData?.color || 'var(--bg-tertiary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    {agent && <agent.icon style={{ width: '16px', height: '16px', color: agent.color }} />}
+                    <Icon style={{ width: '18px', height: '18px', color: 'white' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {exec.input.substring(0, 50)}{exec.input.length > 50 ? '...' : ''}
+                      {exec.input.substring(0, 60)}{exec.input.length > 60 ? '...' : ''}
                     </p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                      {agent?.name} · {exec.timestamp}
+                    <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                      {agentData?.name || '에이전트'} · {formatDate(exec.createdAt)}
                     </p>
                   </div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {(exec.duration / 1000).toFixed(1)}초
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock style={{ width: '12px', height: '12px' }} />
+                      {(exec.duration / 1000).toFixed(1)}초
+                    </span>
+                    <ChevronRight style={{ width: '16px', height: '16px' }} />
+                  </div>
                 </Card>
               );
             })}
@@ -433,6 +1103,15 @@ export default function AgentDashboardPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.1); }
+        }
+        textarea:focus {
+          outline: none;
+          border-color: var(--color-primary) !important;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1) !important;
         }
       `}</style>
     </div>

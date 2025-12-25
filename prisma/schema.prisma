@@ -409,6 +409,101 @@ model Plugin {
   updatedAt   DateTime @updatedAt
 }
 
+// ========================================
+// AI Agent System (Production)
+// ========================================
+
+// 에이전트 정의
+model AIAgent {
+  id              String   @id @default(cuid())
+  name            String   // 표시 이름 (리서처, 코더 등)
+  slug            String   @unique // URL-friendly identifier
+  description     String   // 에이전트 설명
+  icon            String   @default("bot") // 아이콘 이름
+  color           String   @default("#7c3aed") // 테마 색상
+  gradient        String?  // 그라데이션 CSS
+  
+  // 프롬프트 설정
+  systemPrompt    String   // 시스템 프롬프트
+  placeholder     String?  // 입력 플레이스홀더
+  
+  // 분류 및 태그
+  category        String   @default("general") // 카테고리
+  tags            String   @default("[]") // JSON 배열
+  
+  // 사용 통계
+  usageCount      Int      @default(0)
+  totalTokens     Int      @default(0)
+  avgResponseTime Float?   // 평균 응답 시간 (ms)
+  
+  // 평가
+  totalRatings    Int      @default(0)
+  sumRatings      Int      @default(0) // 평점 합계
+  
+  // 상태
+  isActive        Boolean  @default(true)
+  isDefault       Boolean  @default(false) // 기본 제공 에이전트
+  requiredRole    String?  // 필요 권한 (null = 모든 사용자)
+  
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  executions      AgentExecution[]
+  favorites       UserAgentFavorite[]
+  
+  @@index([category])
+  @@index([isActive])
+}
+
+// 에이전트 실행 기록
+model AgentExecution {
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         AIAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId        String
+  
+  // 입출력
+  input         String   // 사용자 입력
+  output        String   // 에이전트 응답
+  
+  // 성능 지표
+  duration      Int      // 실행 시간 (ms)
+  tokensIn      Int      @default(0)
+  tokensOut     Int      @default(0)
+  
+  // 사용된 모델
+  modelId       String?
+  
+  // 평가
+  rating        Int?     // 1-5 점수
+  feedback      String?  // 피드백 텍스트
+  
+  // 상태
+  status        String   @default("SUCCESS") // SUCCESS, ERROR
+  errorMessage  String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([agentId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// 사용자 즐겨찾기
+model UserAgentFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  agentId   String
+  agent     AIAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  order     Int      @default(0) // 정렬 순서
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, agentId])
+  @@index([userId])
+}
+
 // --- Operations ---
 model Announcement {
   id          String    @id @default(cuid())
