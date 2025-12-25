@@ -120,6 +120,15 @@ export default function AgentDashboardPage() {
   const [tokensUsed, setTokensUsed] = useState<{in: number, out: number} | null>(null);
   const [useTools, setUseTools] = useState(true);
   const [toolCalls, setToolCalls] = useState<string[]>([]);
+  
+  // Conversation history for context (multi-turn)
+  const [conversationHistory, setConversationHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
+  const [useContext, setUseContext] = useState(false);
+  
+  // Session stats
+  const [sessionStats, setSessionStats] = useState({ executions: 0, totalTokens: 0, totalTime: 0 });
+  const [showStats, setShowStats] = useState(false);
+  
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -146,6 +155,12 @@ export default function AgentDashboardPage() {
   
   // Active tool calls during streaming
   const [activeToolCalls, setActiveToolCalls] = useState<Array<{tool: string, status: 'running' | 'done', startTime: number}>>([]);
+  
+  // Smart follow-up suggestions
+  const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
+  
+  // Agent chaining
+  const [showChainMenu, setShowChainMenu] = useState(false);
 
   // Load agents and history
   const loadData = useCallback(async () => {
@@ -236,6 +251,11 @@ export default function AgentDashboardPage() {
         ? "\n\n사용 가능한 도구: calculate(수학계산), web_search(웹검색), read_url(URL읽기), execute_code(코드실행), current_time(현재시간). 필요시 도구를 활용하세요."
         : "";
       
+      // Build messages with conversation history if enabled
+      const contextMessages = useContext && conversationHistory.length > 0
+        ? conversationHistory.slice(-6)  // Keep last 3 exchanges (6 messages)
+        : [];
+      
       // Call chat API directly for streaming with tool support
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -243,6 +263,7 @@ export default function AgentDashboardPage() {
         body: JSON.stringify({
           messages: [
             { role: "system", content: selectedAgent.systemPrompt + toolPrompt },
+            ...contextMessages,
             { role: "user", content: input.trim() }
           ],
           provider: modelConfig?.provider,
@@ -335,6 +356,23 @@ export default function AgentDashboardPage() {
       
       setResult(execution);
       setRecentExecutions(prev => [execution, ...prev.slice(0, 9)]);
+      
+      // Update conversation history for context
+      if (useContext) {
+        setConversationHistory(prev => [
+          ...prev,
+          { role: 'user' as const, content: input.trim() },
+          { role: 'assistant' as const, content: finalOutput }
+        ].slice(-10)); // Keep last 10 messages
+      }
+      
+      // Update session stats
+      const tokenCount = (tokensUsed?.in || 0) + (tokensUsed?.out || 0);
+      setSessionStats(prev => ({
+        executions: prev.executions + 1,
+        totalTokens: prev.totalTokens + tokenCount,
+        totalTime: prev.totalTime + duration
+      }));
       
       // Refresh stats
       const statsRes = await fetch("/api/agents?stats=true");
@@ -1034,6 +1072,101 @@ export default function AgentDashboardPage() {
             )}
           </div>
           
+          {/* Context & Stats Panel */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '12px', 
+            marginBottom: '16px',
+            flexWrap: 'wrap'
+          }}>
+            {/* Context Toggle */}
+            <div style={{
+              flex: '1',
+              minWidth: '200px',
+              padding: '10px 14px',
+              background: useContext ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%)' : 'var(--bg-secondary)',
+              borderRadius: '10px',
+              border: useContext ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Brain style={{ width: '16px', height: '16px', color: useContext ? 'rgb(34, 197, 94)' : 'var(--text-tertiary)' }} />
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: useContext ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    대화 맥락
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                    {useContext ? `${conversationHistory.length}개 메시지 기억중` : '이전 대화 무시'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {useContext && conversationHistory.length > 0 && (
+                  <button
+                    onClick={() => setConversationHistory([])}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '10px',
+                      background: 'transparent',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '4px',
+                      color: 'var(--text-tertiary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    초기화
+                  </button>
+                )}
+                <button
+                  onClick={() => setUseContext(!useContext)}
+                  style={{
+                    width: '36px',
+                    height: '20px',
+                    borderRadius: '10px',
+                    background: useContext ? 'rgb(34, 197, 94)' : 'var(--bg-tertiary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    width: '14px', height: '14px', borderRadius: '50%', background: 'white',
+                    position: 'absolute', top: '3px', left: useContext ? '19px' : '3px',
+                    transition: 'left 200ms', boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                  }} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Session Stats */}
+            <div style={{
+              flex: '1',
+              minWidth: '200px',
+              padding: '10px 14px',
+              background: 'var(--bg-secondary)',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <BarChart3 style={{ width: '14px', height: '14px', color: 'var(--text-tertiary)' }} />
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{sessionStats.executions}회</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Zap style={{ width: '14px', height: '14px', color: 'var(--text-tertiary)' }} />
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{sessionStats.totalTokens.toLocaleString()} 토큰</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Timer style={{ width: '14px', height: '14px', color: 'var(--text-tertiary)' }} />
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{(sessionStats.totalTime / 1000).toFixed(1)}초</span>
+              </div>
+            </div>
+          </div>
+          
           {/* Tooltip CSS */}
           <style>{`
             .tool-tooltip-container:hover .tool-tooltip {
@@ -1260,6 +1393,149 @@ export default function AgentDashboardPage() {
             border: '1px solid var(--border-color)'
           }}>
             <MarkdownRenderer content={result.output} />
+          </div>
+          
+          {/* Chain to Another Agent */}
+          <div style={{ marginTop: '16px', position: 'relative' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                onClick={() => setShowChainMenu(!showChainMenu)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px',
+                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%)',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  fontWeight: 500
+                }}
+              >
+                <ChevronRight style={{ width: '14px', height: '14px' }} />
+                다른 에이전트로 전달
+              </button>
+              
+              <button
+                onClick={() => {
+                  setInput(result.output.slice(0, 500) + (result.output.length > 500 ? '...' : ''));
+                  textareaRef.current?.focus();
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                <RotateCcw style={{ width: '14px', height: '14px' }} />
+                결과로 계속하기
+              </button>
+              
+              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: 'auto' }}>
+                💡 Ctrl+Enter: 실행 | Esc: 중단
+              </span>
+            </div>
+            
+            {/* Chain Menu Dropdown */}
+            {showChainMenu && (
+              <div style={{
+                position: 'absolute',
+                bottom: '44px',
+                left: 0,
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                padding: '8px',
+                zIndex: 1000,
+                minWidth: '220px'
+              }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', padding: '4px 8px', marginBottom: '4px' }}>
+                  결과를 선택한 에이전트에 전달:
+                </div>
+                {agents.filter(a => a.id !== selectedAgent?.id).slice(0, 5).map(agent => (
+                  <button
+                    key={agent.id}
+                    onClick={() => {
+                      setSelectedAgent(agent);
+                      setInput(`이전 작업 결과를 바탕으로 처리해 주세요:\n\n${result.output.slice(0, 1000)}`);
+                      setShowChainMenu(false);
+                      setResult(null);
+                      textareaRef.current?.focus();
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      width: '100%',
+                      padding: '8px 10px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span>{agent.icon}</span>
+                    {agent.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Smart Follow-up Suggestions */}
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '8px' }}>
+              💬 후속 질문 제안:
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {[
+                '더 자세히 설명해 주세요',
+                '다른 방법은 없나요?',
+                '예시를 들어 주세요',
+                '이것을 개선해 주세요'
+              ].map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    if (useContext) {
+                      setInput(suggestion);
+                    } else {
+                      setInput(`이전 답변에 대해: ${suggestion}\n\n[이전 답변 요약]\n${result.output.slice(0, 300)}...`);
+                    }
+                    textareaRef.current?.focus();
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    transition: 'all 150ms'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         </Card>
       )}
